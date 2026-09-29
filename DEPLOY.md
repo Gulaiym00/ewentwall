@@ -19,7 +19,7 @@
 ## 2. Render — бэкенд
 
 1. Зарегистрируйтесь на [render.com](https://render.com) через GitHub.
-2. **New → Blueprint** → выберите репозиторий `ewent-wall`. Render прочитает `render.yaml`.
+2. **New → Blueprint** → выберите репозиторий `ewentwall`. Render прочитает `render.yaml`.
 3. Заполните значения, которые он спросит:
 
 | Переменная | Значение |
@@ -40,10 +40,10 @@
 ## 3. Vercel — фронтенд
 
 1. Зарегистрируйтесь на [vercel.com](https://vercel.com) через GitHub.
-2. **Add New → Project** → импортируйте репозиторий `ewent-wall`.
+2. **Add New → Project** → импортируйте репозиторий `ewentwall`.
 3. **Root Directory** → `frontend` (Framework определится как Next.js).
 4. **Environment Variables**: `NEXT_PUBLIC_API_URL` = `https://eventwall-api.onrender.com/api`
-5. **Deploy**. Получите адрес вида `https://ewent-wall.vercel.app`.
+5. **Deploy**. Получите адрес вида `https://ewentwall.vercel.app`.
 
 ## 4. Связать фронтенд и бэкенд
 
