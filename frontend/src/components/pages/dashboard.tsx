@@ -10,6 +10,7 @@ import { Icon, type IconName } from '@/ui/icons';
 import { LoadError, PageLoader } from '@/ui/loader';
 import { formatNumber } from '@/utils/format';
 import { useT, type Translate } from '@/utils/locale';
+import ReviewCard from '@/widgets/review-card';
 
 const sum = (events: OrganizerEvent[], key: 'photos' | 'guests' | 'reactions') => events.reduce((s, e) => s + e.stats[key], 0);
 
@@ -136,6 +137,8 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {events.length > 0 && <ReviewCard events={events} />}
     </>
   );
 }
