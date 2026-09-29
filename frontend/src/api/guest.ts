@@ -2,6 +2,7 @@
 
 import { api, ApiError, API_URL, url } from './client';
 import { getGuestSession, setGuestSession } from './session';
+import { compressImage } from '@/utils/compress-image';
 import type { Comment, Page, Photo, PublicEvent, ReportReason } from './types';
 
 const as = (slug: string) => ({ auth: { guest: slug } as const });
@@ -20,8 +21,9 @@ export const guestApi = {
     api.get<Page<Photo>>(`/e/${slug}/photos`, { ...as(slug), query }),
 
   /** Uploads with real progress (fetch can't report upload progress, XHR can). */
-  upload: (slug: string, files: File[], caption: string, onProgress?: (pct: number) => void) =>
-    new Promise<{ photos: Photo[]; awaitingApproval: boolean }>((resolve, reject) => {
+  upload: async (slug: string, originals: File[], caption: string, onProgress?: (pct: number) => void) => {
+    const files = await Promise.all(originals.map(compressImage));
+    return new Promise<{ photos: Photo[]; awaitingApproval: boolean }>((resolve, reject) => {
       const session = getGuestSession(slug);
       if (!session) return reject(new ApiError(401, 'Join the event first'));
       const form = new FormData();
@@ -41,7 +43,8 @@ export const guestApi = {
       };
       xhr.onerror = () => reject(new ApiError(0, 'Upload failed — check your connection and try again'));
       xhr.send(form);
-    }),
+    });
+  },
 
   react: (slug: string, photoId: string, emoji: string) => api.post<Photo>(`/photos/${photoId}/reactions`, { emoji }, as(slug)),
   comments: (slug: string, photoId: string) => api.get<Comment[]>(`/photos/${photoId}/comments`, as(slug)),
