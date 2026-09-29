@@ -1,0 +1,285 @@
+// EventWall database schema.
+// Runtime connects through the pg driver adapter (see src/prisma/prisma.service.ts);
+// the CLI (migrations) uses the URLs from prisma.config.ts.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─── Users & auth ─────────────────────────────────────────────────────────────
+
+enum UserRole {
+  GUEST
+  ORGANIZER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING // invited, has not signed in yet
+  BLOCKED
+}
+
+enum Locale {
+  EN
+  RU
+}
+
+model User {
+  id           String     @id @default(uuid()) @db.Uuid
+  email        String     @unique
+  name         String
+  passwordHash String?    // null for Google-only accounts and pending invites
+  googleId     String?    @unique
+  avatarUrl    String?
+  phone        String?
+  city         String?
+  language     Locale     @default(EN)
+  role         UserRole   @default(ORGANIZER)
+  status       UserStatus @default(ACTIVE)
+
+  notifyNewPhotos    Boolean @default(true)
+  notifyDailySummary Boolean @default(true)
+  notifyReports      Boolean @default(true)
+  notifyProduct      Boolean @default(false)
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  lastSeenAt DateTime?
+
+  refreshTokens RefreshToken[]
+  events        Event[]
+  reviews       Review[]
+
+  @@index([role, status])
+}
+
+/// Refresh tokens are stored hashed and rotated on every use. A reused (already rotated)
+/// token revokes its whole family — the standard defence against stolen refresh tokens.
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  familyId  String    @db.Uuid
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  userAgent String?
+  ip        String?
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+// ─── Events ───────────────────────────────────────────────────────────────────
+
+enum EventStatus {
+  UPCOMING
+  ACTIVE
+  CLOSED
+  FLAGGED
+}
+
+model Event {
+  id             String      @id @default(uuid()) @db.Uuid
+  slug           String      @unique // public id used in the QR link: /e/{slug}
+  organizerId    String      @db.Uuid
+  organizer      User        @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  name           String
+  type           String      @default("Wedding")
+  startsAt       DateTime?
+  endsAt         DateTime?
+  location       String?
+  welcomeMessage String?
+  coverUrl       String?
+  language       Locale      @default(EN)
+  status         EventStatus @default(UPCOMING)
+
+  // Guest settings (create-event wizard, step 3)
+  premoderation Boolean @default(false)
+  allowComments Boolean @default(true)
+  allowReactions Boolean @default(true)
+  askGuestName  Boolean @default(false)
+  allowDownloads Boolean @default(true)
+  pinHash       String? // null = no PIN
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  guests  Guest[]
+  photos  Photo[]
+  reviews Review[]
+
+  @@index([organizerId])
+  @@index([status])
+}
+
+/// Anonymous guest session created when someone scans the QR code.
+model Guest {
+  id        String   @id @default(uuid()) @db.Uuid
+  eventId   String   @db.Uuid
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name      String?
+  createdAt DateTime @default(now())
+
+  photos    Photo[]
+  reactions Reaction[]
+  comments  Comment[]
+  reports   Report[]
+
+  @@index([eventId])
+}
+
+// ─── Photos ───────────────────────────────────────────────────────────────────
+
+enum PhotoStatus {
+  PENDING   // waiting for organizer approval (premoderation)
+  PUBLISHED
+  HIDDEN    // auto-hidden after too many reports, waiting for admin
+  REMOVED   // removed by moderation
+}
+
+model Photo {
+  id         String      @id @default(uuid()) @db.Uuid
+  eventId    String      @db.Uuid
+  event      Event       @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  guestId    String?     @db.Uuid
+  guest      Guest?      @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  authorName String?
+  storageKey String      @unique
+  mimeType   String
+  size       Int
+  caption    String?
+  status     PhotoStatus @default(PUBLISHED)
+  aiScore    Int?        // 0–100 risk score from AI moderation, when enabled
+  createdAt  DateTime    @default(now())
+
+  reactions Reaction[]
+  comments  Comment[]
+  reports   Report[]
+
+  @@index([eventId, status, createdAt])
+}
+
+model Reaction {
+  id        String   @id @default(uuid()) @db.Uuid
+  photoId   String   @db.Uuid
+  photo     Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  guestId   String   @db.Uuid
+  guest     Guest    @relation(fields: [guestId], references: [id], onDelete: Cascade)
+  emoji     String
+  createdAt DateTime @default(now())
+
+  @@unique([photoId, guestId]) // one reaction per guest per photo; reacting again switches it
+}
+
+model Comment {
+  id         String   @id @default(uuid()) @db.Uuid
+  photoId    String   @db.Uuid
+  photo      Photo    @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  guestId    String?  @db.Uuid
+  guest      Guest?   @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  authorName String
+  text       String
+  createdAt  DateTime @default(now())
+
+  @@index([photoId, createdAt])
+}
+
+enum ReportReason {
+  INAPPROPRIATE
+  SPAM
+  COPYRIGHT
+  PRIVACY
+  VIOLENCE
+}
+
+enum ReportStatus {
+  PENDING
+  APPROVED // photo kept
+  REMOVED  // photo removed
+}
+
+model Report {
+  id           String       @id @default(uuid()) @db.Uuid
+  photoId      String       @db.Uuid
+  photo        Photo        @relation(fields: [photoId], references: [id], onDelete: Cascade)
+  guestId      String?      @db.Uuid
+  guest        Guest?       @relation(fields: [guestId], references: [id], onDelete: SetNull)
+  reason       ReportReason
+  status       ReportStatus @default(PENDING)
+  createdAt    DateTime     @default(now())
+  resolvedAt   DateTime?
+  resolvedById String?      @db.Uuid
+
+  @@unique([photoId, guestId]) // a guest reports a photo once
+  @@index([status, createdAt])
+}
+
+// ─── Reviews, content, settings, audit ───────────────────────────────────────
+
+enum ReviewStatus {
+  PENDING
+  PUBLISHED
+  HIDDEN
+}
+
+model Review {
+  id          String       @id @default(uuid()) @db.Uuid
+  organizerId String       @db.Uuid
+  organizer   User         @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+  eventId     String?      @db.Uuid
+  event       Event?       @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  rating      Int
+  text        String
+  status      ReviewStatus @default(PENDING)
+  featured    Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+
+  @@index([status, featured])
+}
+
+/// Landing page texts, one row per locale (edited in Admin → Website content).
+model SiteContent {
+  locale    Locale   @id
+  data      Json
+  updatedAt DateTime @updatedAt
+}
+
+/// Single row (id = 1) with platform-wide settings (Admin → Settings).
+model PlatformSettings {
+  id        Int      @id @default(1)
+  data      Json
+  updatedAt DateTime @updatedAt
+}
+
+enum AuditCategory {
+  AUTH
+  USER
+  EVENT
+  MODERATION
+  CONTENT
+  SETTINGS
+}
+
+model AuditLog {
+  id        String        @id @default(uuid()) @db.Uuid
+  createdAt DateTime      @default(now())
+  actorId   String?       @db.Uuid
+  actorName String
+  actorRole String        // admin | organizer | system
+  category  AuditCategory
+  action    String
+  target    String
+  ip        String?
+
+  @@index([createdAt])
+  @@index([category, createdAt])
+}

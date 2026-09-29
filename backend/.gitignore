@@ -1,0 +1,15 @@
+node_modules
+dist
+coverage
+
+# Secrets — use .env.example as the template
+.env
+.env.*
+!.env.example
+
+# Generated
+/src/generated/prisma
+*.tsbuildinfo
+
+# Local file storage (STORAGE_DRIVER=local)
+/uploads
