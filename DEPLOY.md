@@ -5,7 +5,7 @@
 
 ## 1. Supabase — база данных и хранилище фото
 
-1. Зарегистрируйтесь на [supabase.com](https://supabase.com) и создайте проект (регион — Frankfurt / EU Central). Запомните пароль базы.
+1. Зарегистрируйтесь на [supabase.com](https://supabase.com) и создайте проект (регион базы и регион Render в `render.yaml` должны быть рядом; сейчас: Supabase — Tokyo, Render — Singapore). Запомните пароль базы.
 2. **Connect → ORMs → Prisma** — скопируйте две строки:
    - `DATABASE_URL` — пулер, порт **6543** (с `?pgbouncer=true`);
    - `DIRECT_URL` — прямое подключение, порт **5432**.

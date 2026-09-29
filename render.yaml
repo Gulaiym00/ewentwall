@@ -6,7 +6,7 @@ services:
     name: eventwall-api
     runtime: node
     plan: free
-    region: frankfurt
+    region: singapore  # closest Render region to the Supabase project (Tokyo)
     rootDir: backend
     # Dev dependencies are needed to build (Nest CLI, Prisma CLI) and to seed (tsx).
     buildCommand: npm ci --include=dev && npm run build
