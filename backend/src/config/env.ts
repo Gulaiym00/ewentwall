@@ -17,9 +17,13 @@ export interface Env {
   GUEST_TOKEN_TTL_DAYS: number;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
-  STORAGE_DRIVER: 'local';
+  STORAGE_DRIVER: 'local' | 'supabase';
   UPLOAD_DIR: string;
   STORAGE_QUOTA_GB: number;
+  /** Supabase Storage (STORAGE_DRIVER=supabase): project URL, service-role key and a public bucket. */
+  SUPABASE_URL?: string;
+  SUPABASE_SERVICE_ROLE_KEY?: string;
+  SUPABASE_BUCKET: string;
 }
 
 const WEAK_SECRETS = new Set(['', 'change-me', 'secret', 'changeme']);
@@ -63,12 +67,19 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     GOOGLE_CLIENT_ID: str('GOOGLE_CLIENT_ID', '') || undefined,
     GOOGLE_CLIENT_SECRET: str('GOOGLE_CLIENT_SECRET', '') || undefined,
     STORAGE_DRIVER: 'local',
+    SUPABASE_URL: str('SUPABASE_URL', '').replace(/\/$/, '') || undefined,
+    SUPABASE_SERVICE_ROLE_KEY: str('SUPABASE_SERVICE_ROLE_KEY', '') || undefined,
+    SUPABASE_BUCKET: str('SUPABASE_BUCKET', 'photos'),
     UPLOAD_DIR: str('UPLOAD_DIR', './uploads'),
     STORAGE_QUOTA_GB: int('STORAGE_QUOTA_GB', 1000),
   };
 
   const driver = str('STORAGE_DRIVER', 'local');
-  if (driver !== 'local') errors.push(`STORAGE_DRIVER "${driver}" is not supported yet (only "local")`);
+  if (driver === 'supabase') {
+    env.STORAGE_DRIVER = 'supabase';
+    if (!env.SUPABASE_URL) errors.push('SUPABASE_URL is required when STORAGE_DRIVER=supabase');
+    if (!env.SUPABASE_SERVICE_ROLE_KEY) errors.push('SUPABASE_SERVICE_ROLE_KEY is required when STORAGE_DRIVER=supabase');
+  } else if (driver !== 'local') errors.push(`STORAGE_DRIVER "${driver}" is not supported (use "local" or "supabase")`);
 
   if (errors.length) throw new Error(`Invalid environment:\n  - ${errors.join('\n  - ')}\nSee backend/.env.example`);
   return env;

@@ -1,0 +1,52 @@
+# Render Blueprint for the EventWall API (backend/).
+# Render → New → Blueprint → pick this repository. Values marked `sync: false`
+# are asked for when the blueprint is created (see DEPLOY.md).
+services:
+  - type: web
+    name: eventwall-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    rootDir: backend
+    # Dev dependencies are needed to build (Nest CLI, Prisma CLI) and to seed (tsx).
+    buildCommand: npm ci --include=dev && npm run build
+    # Free instances have no pre-deploy step: apply migrations and ensure the admin on every start.
+    startCommand: npx prisma migrate deploy && npm run db:seed && node dist/main
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "24"
+      # Supabase → Connect → ORMs → Prisma: pooler (6543) and direct (5432) connection strings
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      # Public URLs: the Vercel site and this service itself (https://eventwall-api.onrender.com)
+      - key: FRONTEND_URL
+        sync: false
+      - key: API_URL
+        sync: false
+      - key: CORS_ORIGINS
+        value: ""
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_GUEST_SECRET
+        generateValue: true
+      # First admin account, created on the first start
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      # Photos go to a public Supabase Storage bucket (created automatically)
+      - key: STORAGE_DRIVER
+        value: supabase
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        value: photos
