@@ -6,6 +6,16 @@ import { PrismaService } from './prisma/prisma.service.js';
 
 const DB_TIMEOUT_MS = 5000;
 
+/** One log line with everything Prisma and the pg driver report (message, code, meta, cause). */
+function explain(err: unknown): string {
+  const e = err as { message?: string; code?: string; meta?: unknown; cause?: unknown } | undefined;
+  const parts = [e?.message ?? String(err)];
+  if (e?.code) parts.push(`code=${e.code}`);
+  if (e?.meta) parts.push(`meta=${JSON.stringify(e.meta)}`);
+  if (e?.cause) parts.push(`cause=${e.cause instanceof Error ? e.cause.message : JSON.stringify(e.cause)}`);
+  return parts.join(' | ').replace(/\s+/g, ' ').trim(); // one line: hosts split multi-line logs
+}
+
 @ApiTags('health')
 @Controller('health')
 export class HealthController {
@@ -25,7 +35,7 @@ export class HealthController {
       ]);
       return { status: 'ok', database: 'up' };
     } catch (err) {
-      this.log.error(`Database check failed: ${(err instanceof Error ? err.message : String(err)).replace(/\s+/g, ' ').trim()}`); // one line: hosts split multi-line logs
+      this.log.error(`Database check failed: ${explain(err)}`);
       throw new ServiceUnavailableException({ status: 'error', database: 'down' });
     }
   }
