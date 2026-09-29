@@ -25,7 +25,7 @@ export class HealthController {
       ]);
       return { status: 'ok', database: 'up' };
     } catch (err) {
-      this.log.error(`Database check failed: ${(err instanceof Error ? err.message : String(err)).replace(/s+/g, ' ').trim()}`); // one line: hosts split multi-line logs
+      this.log.error(`Database check failed: ${(err instanceof Error ? err.message : String(err)).replace(/\s+/g, ' ').trim()}`); // one line: hosts split multi-line logs
       throw new ServiceUnavailableException({ status: 'error', database: 'down' });
     }
   }
