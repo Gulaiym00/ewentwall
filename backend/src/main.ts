@@ -48,7 +48,7 @@ export function configureApp(app: NestExpressApplication) {
 async function bootstrap() {
   const app = await createApp();
   const port = app.get(ConfigService<Env, true>).get('PORT', { infer: true });
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0'); // all IPv4 interfaces: hosts like Render probe the service over IPv4
   console.log(`API ready on http://localhost:${port}/api  ·  docs: http://localhost:${port}/api/docs`);
 }
 
