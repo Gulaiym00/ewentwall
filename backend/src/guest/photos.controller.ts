@@ -120,7 +120,7 @@ export class PhotosController {
     const photo = await this.photoForGuest(id, guest);
     if (photo.guestId !== guest.id) throw new ForbiddenException('You can only delete your own photos');
     await this.prisma.photo.delete({ where: { id } });
-    await this.storage.delete(photo.storageKey);
+    await this.storage.deleteMany(photo.thumbKey ? [photo.storageKey, photo.thumbKey] : [photo.storageKey]);
     this.realtime.publish({ eventId: photo.eventId, type: 'photo.removed', data: { id } });
   }
 }

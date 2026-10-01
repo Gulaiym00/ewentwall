@@ -2,10 +2,11 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { errorMessage } from '@/api/client';
 import { eventsApi } from '@/api/events';
 import type { EventInput, OrganizerEvent } from '@/api/types';
+import { useEventQr, useShareQrPoster } from '@/components/EventQr';
 import { useToast } from '@/components/Toast';
 import { useApi } from '@/hooks/useApi';
 import { useOrganizer } from '@/hooks/useOrganizer';
@@ -47,18 +48,13 @@ export default function EventManage({ id }: { id: string }) {
   const { reloadEvents } = useOrganizer();
   const event = useApi(() => eventsApi.get(id), [id]);
   const pending = useApi(() => eventsApi.photos(id, 'pending'), [id]);
-  const [qrUrl, setQrUrl] = useState<string | null>(null);
   const [pin, setPin] = useState('');
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState<'delete' | 'close' | null>(null);
 
   // QR image needs the organizer's token, so it's fetched as a blob.
-  useEffect(() => {
-    let url: string | null = null;
-    let alive = true;
-    eventsApi.qrImage(id).then(u => { url = u; if (alive) setQrUrl(u); }, () => undefined);
-    return () => { alive = false; if (url) URL.revokeObjectURL(url); };
-  }, [id]);
+  const qrUrl = useEventQr(id);
+  const { share: sharePoster, busy: sharingPoster } = useShareQrPoster();
 
   if (event.loading && !event.data) return <PageLoader label={t('Loading event…', 'Загружаем событие…')} />;
   if (event.error && !event.data) return <LoadError message={event.error.message} onRetry={event.reload} />;
@@ -142,7 +138,7 @@ export default function EventManage({ id }: { id: string }) {
                 <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {pendingPhotos.map(p => (
                     <li key={p.id} className="overflow-hidden rounded-xl border border-line">
-                      <img src={p.url} alt={p.caption ?? ''} className="aspect-square w-full bg-line object-cover" />
+                      <img src={p.thumbUrl} alt={p.caption ?? ''} className="aspect-square w-full bg-line object-cover" />
                       <div className="p-2">
                         <p className="mb-2 truncate text-xs text-muted">{p.author}{p.caption ? ` · ${p.caption}` : ''}</p>
                         <div className="grid grid-cols-2 gap-1.5">
@@ -195,7 +191,10 @@ export default function EventManage({ id }: { id: string }) {
               <Button size="sm" icon="download" onClick={() => download(eventsApi.qrImage(id, 'png', true), `${ev.slug}-qr.png`)}>PNG</Button>
               <Button size="sm" icon="download" onClick={() => download(eventsApi.qrImage(id, 'svg', true), `${ev.slug}-qr.svg`)}>SVG</Button>
             </div>
-            <Button variant="primary" className="mt-2 w-full" icon="external" onClick={copyLink}>{t('Copy guest link', 'Скопировать ссылку')}</Button>
+            <Button variant="primary" className="mt-2 w-full" icon="share" disabled={!qrUrl || sharingPoster} onClick={() => sharePoster(ev, qrUrl)}>
+              {sharingPoster ? t('Preparing…', 'Готовим…') : t('Share photo', 'Поделиться фото')}
+            </Button>
+            <Button className="mt-2 w-full" icon="external" onClick={copyLink}>{t('Copy guest link', 'Скопировать ссылку')}</Button>
           </Card>
 
           <Card>

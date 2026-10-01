@@ -59,6 +59,7 @@ const en = {
     eyebrow: 'How it works',
     title: 'Three steps to a living memory.',
     subtitle: 'From setup to a gallery full of moments — in minutes, not hours.',
+    qrCaption: 'Scan to share photos',
     steps: [
       { title: 'Create your event', desc: 'Set the name, date, and style. Customize settings like moderation, comments, and guest controls. Takes 2 minutes.' },
       { title: 'Share the QR code', desc: 'Print it on tables, display it on screen, or send the link. Guests scan and are instantly inside — no account needed.' },
@@ -146,6 +147,7 @@ const ru: LandingDict = {
     eyebrow: 'Как это работает',
     title: 'Три шага к живым воспоминаниям.',
     subtitle: 'От создания до галереи, полной моментов, — за минуты, а не часы.',
+    qrCaption: 'Сканируйте и делитесь фото',
     steps: [
       { title: 'Создайте событие', desc: 'Укажите название, дату и стиль. Настройте модерацию, комментарии и правила для гостей. Займёт 2 минуты.' },
       { title: 'Поделитесь QR-кодом', desc: 'Распечатайте его на столы, покажите на экране или отправьте ссылку. Гости сканируют и сразу попадают внутрь — без регистрации.' },

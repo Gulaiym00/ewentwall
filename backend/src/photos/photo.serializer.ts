@@ -20,6 +20,7 @@ export function photoDto(photo: PhotoWithCounts, storage: StorageService, viewer
     id: photo.id,
     eventId: photo.eventId,
     url: storage.url(photo.storageKey),
+    thumbUrl: storage.url(photo.thumbKey ?? photo.storageKey),
     author: photo.authorName ?? 'Guest',
     caption: photo.caption,
     status: lower(photo.status),

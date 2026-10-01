@@ -9,6 +9,7 @@ import CameraCapture, { canUseInAppCamera } from '@/components/CameraCapture';
 import { useApi } from '@/hooks/useApi';
 import { useGuestSession } from '@/hooks/useGuestSession';
 import { useNav } from '@/hooks/useNav';
+import GuestFooter from '@/layout/guest-footer';
 import { PageLoader } from '@/ui/loader';
 import { formatLongDate, formatNumber } from '@/utils/format';
 import { LOCALE_COOKIE } from '@/utils/i18n';
@@ -193,6 +194,7 @@ function JoinScreen({ ev, onJoin }: { ev: PublicEvent; onJoin: (name: string, pi
           )}
         </form>
       </div>
+      <GuestFooter />
     </div>
   );
 }
@@ -397,7 +399,7 @@ export default function GuestEvent({ slug }: { slug: string }) {
                   <Link key={photo.id} href={`/e/${slug}/wall`} aria-label={t(`Photo by ${photo.author}`, `Фото от ${photo.author}`)}
                     style={{ borderRadius: 10, overflow: 'hidden', aspectRatio: '1', background: 'var(--border)', display: 'block' }}
                     className="photo-hover">
-                    <img src={photo.url} alt={photo.caption ?? ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                    <img src={photo.thumbUrl} alt={photo.caption ?? ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
                   </Link>
                 ))}
               </div>
@@ -423,6 +425,8 @@ export default function GuestEvent({ slug }: { slug: string }) {
           ))}
         </div>
       </div>
+
+      <GuestFooter />
 
       {/* ── In-page camera (computers) ────────────────────────── */}
       {uploadStep === 'camera' && (

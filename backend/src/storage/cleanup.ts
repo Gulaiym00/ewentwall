@@ -10,10 +10,11 @@ const isStorageKey = (ref: string | null): ref is string => !!ref && !/^https?:\
 export async function eventFileKeys(prisma: PrismaService, eventIds: string[]): Promise<string[]> {
   if (!eventIds.length) return [];
   const [photos, events] = await Promise.all([
-    prisma.photo.findMany({ where: { eventId: { in: eventIds } }, select: { storageKey: true } }),
+    prisma.photo.findMany({ where: { eventId: { in: eventIds } }, select: { storageKey: true, thumbKey: true } }),
     prisma.event.findMany({ where: { id: { in: eventIds } }, select: { coverUrl: true } }),
   ]);
-  return [...photos.map(p => p.storageKey), ...events.map(e => e.coverUrl).filter(isStorageKey)];
+  const photoKeys = photos.flatMap(p => (p.thumbKey ? [p.storageKey, p.thumbKey] : [p.storageKey]));
+  return [...photoKeys, ...events.map(e => e.coverUrl).filter(isStorageKey)];
 }
 
 /** Files owned by a user: their avatar and everything in their events. */

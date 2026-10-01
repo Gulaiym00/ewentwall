@@ -1,3 +1,4 @@
+import { FakeQR } from '@/ui/fake-qr';
 import type { LandingDict } from '@/utils/i18n';
 
 const STEPS = [
@@ -5,6 +6,24 @@ const STEPS = [
   { num: '02', img: 'https://images.unsplash.com/photo-1606800052052-a08af7148866?w=600&h=360&fit=crop&auto=format' },
   { num: '03', img: 'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=600&h=360&fit=crop&auto=format' },
 ];
+
+/** Step 2 shows what it says: a QR card on the table that guests scan. */
+function QrVisual({ img, caption }: { img: string; caption: string }) {
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <img src={img} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', filter: 'blur(2px) brightness(0.55)', transform: 'scale(1.05)' }} />
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ background: '#fff', color: '#111', borderRadius: 14, padding: '12px 12px 10px', boxShadow: '0 16px 40px rgba(0,0,0,0.35)', textAlign: 'center', transform: 'rotate(-3deg)' }}>
+          <div style={{ position: 'relative', lineHeight: 0 }}>
+            <FakeQR size={104} />
+            <span className="qr-scan-line" aria-hidden="true" />
+          </div>
+          <p style={{ margin: '8px 0 0', fontSize: 11, fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.02em' }}>{caption}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function HowItWorks({ t }: { t: LandingDict['howItWorks'] }) {
   return (
@@ -22,7 +41,9 @@ export default function HowItWorks({ t }: { t: LandingDict['howItWorks'] }) {
         {STEPS.map((s, i) => ({ ...s, ...t.steps[i] })).map((step, i) => (
           <div key={i}>
             <div style={{ borderRadius: 16, overflow: 'hidden', aspectRatio: '16/10', background: 'var(--border)' }} className="mb-5 md:mb-7">
-              <img src={step.img} alt={step.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              {i === 1
+                ? <QrVisual img={step.img} caption={t.qrCaption} />
+                : <img src={step.img} alt={step.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />}
             </div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, marginBottom: 12 }}>
               <span className="font-serif text-4xl md:text-5xl" style={{ fontWeight: 700, color: 'var(--border)', lineHeight: 1 }}>{step.num}</span>

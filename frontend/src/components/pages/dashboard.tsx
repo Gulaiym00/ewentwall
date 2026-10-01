@@ -104,7 +104,7 @@ export default function Dashboard() {
             {topPhoto.data ? (
               <>
                 <Link href={`/e/${spotlight!.slug}/wall`}>
-                  <img src={topPhoto.data.url} alt={topPhoto.data.caption ?? ''} className="mb-3 block h-40 w-full rounded-xl bg-line object-cover" />
+                  <img src={topPhoto.data.thumbUrl} alt={topPhoto.data.caption ?? ''} className="mb-3 block h-40 w-full rounded-xl bg-line object-cover" />
                 </Link>
                 <div className="flex items-center justify-between gap-3">
                   <span className="min-w-0 truncate text-sm font-semibold">{topPhoto.data.caption ?? `${t('by', 'от')} ${topPhoto.data.author}`}</span>

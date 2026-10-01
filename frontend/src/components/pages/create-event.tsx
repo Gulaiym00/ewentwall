@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { errorMessage } from '@/api/client';
 import { eventsApi } from '@/api/events';
 import type { OrganizerEvent, Role } from '@/api/types';
+import { QrPoster, useEventQr, useShareQrPoster } from '@/components/EventQr';
 import { useToast } from '@/components/Toast';
 import { useRequireAuth } from '@/hooks/useAuth';
 import { useNav } from '@/hooks/useNav';
@@ -46,6 +47,12 @@ const ShareIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
     <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
     <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+  </svg>
+);
+
+const ImageIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
   </svg>
 );
 
@@ -111,7 +118,6 @@ export default function CreateEvent() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState('');
   const [cover, setCover] = useState<{ file: File; preview: string } | null>(null);
-  const [qrUrl, setQrUrl] = useState<string | null>(null);
 
   const [data, setData] = useState<EventData>({
     name: '',
@@ -152,13 +158,8 @@ export default function CreateEvent() {
   }, [step]);
 
   // Real QR code of the created event (the endpoint needs the organizer's token).
-  useEffect(() => {
-    if (!created) return;
-    let url: string | null = null;
-    let alive = true;
-    eventsApi.qrImage(created.id).then(u => { url = u; if (alive) setQrUrl(u); }, () => undefined);
-    return () => { alive = false; if (url) URL.revokeObjectURL(url); };
-  }, [created]);
+  const qrUrl = useEventQr(created?.id);
+  const { share: sharePoster, busy: sharingPoster } = useShareQrPoster();
 
   // Free the cover preview when it changes or the page closes.
   useEffect(() => () => { if (cover) URL.revokeObjectURL(cover.preview); }, [cover]);
@@ -216,17 +217,6 @@ export default function CreateEvent() {
       setTimeout(() => setCopied(false), 2000);
     } catch {
       toast(t('Copy failed — select the link and copy it manually', 'Не удалось скопировать — выделите ссылку и скопируйте вручную'), 'danger');
-    }
-  };
-
-  const downloadQr = async () => {
-    if (!created) return;
-    try {
-      const href = await eventsApi.qrImage(created.id, 'png', true);
-      Object.assign(document.createElement('a'), { href, download: `${created.slug}-qr.png` }).click();
-      setTimeout(() => URL.revokeObjectURL(href), 1000);
-    } catch (err) {
-      toast(errorMessage(err), 'danger');
     }
   };
 
@@ -467,21 +457,9 @@ export default function CreateEvent() {
               {t('Share the QR code with your guests. They can scan it to instantly join the photo wall.', 'Покажите QR-код гостям — отсканировав его, они сразу попадут на фотостену.')}
             </p>
 
-            {/* QR card */}
-            <div className="p-6 sm:p-8" style={{ display: 'inline-block', maxWidth: '100%', background: 'var(--surface)', borderRadius: 20, border: '1px solid var(--border)', boxShadow: 'var(--shadow-md)', marginBottom: 28 }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-2)', letterSpacing: '0.08em', textTransform: 'uppercase', margin: '0 0 20px' }}>
-                <span style={{ overflowWrap: 'anywhere' }}>{created?.name ?? data.name}</span>
-              </p>
-              <div style={{ color: '#111', background: '#fff', padding: 12, borderRadius: 12, display: 'flex', justifyContent: 'center' }}>{/* QR stays dark-on-light in both themes so scanners can read it */}
-                {qrUrl
-                  ? <img src={qrUrl} alt={t(`QR code for ${created?.name ?? 'your event'}`, `QR-код: ${created?.name ?? 'ваше событие'}`)} width={180} height={180} />
-                  : <div style={{ width: 180, height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Spinner /></div>}
-              </div>
-              <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', margin: '20px 0 0', letterSpacing: '-0.01em' }}>
-                {t('Scan & share your photos', 'Сканируйте и делитесь фото')}
-              </p>
-              {created && <p style={{ fontSize: 12, color: 'var(--text-2)', margin: '6px 0 0', overflowWrap: 'anywhere' }}>{created.joinUrl}</p>}
-            </div>
+            {/* QR poster: event type, name, the event's own QR and "Share the moments" */}
+            {created && <QrPoster event={created} qrUrl={qrUrl} />}
+            {created && <p style={{ fontSize: 12, color: 'var(--text-2)', margin: '12px auto 28px', maxWidth: 340, overflowWrap: 'anywhere' }}>{created.joinUrl}</p>}
 
             {/* Share buttons */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 360, margin: '0 auto 24px' }}>
@@ -490,11 +468,11 @@ export default function CreateEvent() {
                 {copied ? <><CheckIcon /> {t('Copied!', 'Скопировано!')}</> : <><CopyIcon /> {t('Copy link', 'Скопировать ссылку')}</>}
               </button>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <button onClick={downloadQr} style={{ padding: '13px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'none', fontSize: 14, fontWeight: 600, color: 'var(--text-2)', cursor: 'pointer' }}>
-                  {t('Download PNG', 'Скачать PNG')}
+                <button onClick={() => created && sharePoster(created, qrUrl)} disabled={!qrUrl || sharingPoster} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'none', fontSize: 14, fontWeight: 600, color: 'var(--text-2)', cursor: 'pointer', opacity: !qrUrl || sharingPoster ? 0.6 : 1 }}>
+                  {sharingPoster ? <Spinner size={16} /> : <ImageIcon />} {t('Share photo', 'Поделиться фото')}
                 </button>
                 <button onClick={share} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'none', fontSize: 14, fontWeight: 600, color: 'var(--text-2)', cursor: 'pointer' }}>
-                  <ShareIcon /> {t('Share', 'Поделиться')}
+                  <ShareIcon /> {t('Share link', 'Ссылкой')}
                 </button>
               </div>
             </div>

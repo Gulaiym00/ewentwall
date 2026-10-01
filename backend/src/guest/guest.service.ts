@@ -8,6 +8,7 @@ import { fileUrl, lower } from '../common/serialize.js';
 import { TokensService } from '../auth/tokens.service.js';
 import { EventsService } from '../events/events.service.js';
 import { photoDto, photoInclude } from '../photos/photo.serializer.js';
+import { makeThumbnail, thumbKeyFor } from '../photos/thumbnail.js';
 import { SettingsService } from '../platform/settings.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { RealtimeService } from '../realtime/realtime.service.js';
@@ -109,15 +110,29 @@ export class GuestService {
     if (files.length > settings.maxPerUpload) throw new BadRequestException(`Up to ${settings.maxPerUpload} photos per upload`);
 
     // Validate everything before writing anything, so a bad file doesn't leave a half upload.
-    const prepared = files.map(f => ({ file: f, ...imageKey(`events/${event.id}`, f, settings.maxPhotoMb) }));
-    await Promise.all(prepared.map(p => this.storage.put(p.key, p.file.buffer, p.mime)));
+    const validated = files.map(f => ({ file: f, ...imageKey(`events/${event.id}`, f, settings.maxPhotoMb) }));
+    const prepared: (typeof validated[number] & { thumb: Buffer | null; thumbKey: string | null })[] = [];
+    for (const p of validated) { // one at a time: keeps memory low on small servers
+      const thumb = await makeThumbnail(p.file.buffer, p.mime);
+      prepared.push({ ...p, thumb, thumbKey: thumb ? thumbKeyFor(p.key) : null });
+    }
+    const keys = prepared.flatMap(p => (p.thumbKey ? [p.key, p.thumbKey] : [p.key]));
+    try {
+      await Promise.all(prepared.flatMap(p => [
+        this.storage.put(p.key, p.file.buffer, p.mime),
+        ...(p.thumb && p.thumbKey ? [this.storage.put(p.thumbKey, p.thumb, 'image/webp')] : []),
+      ]));
+    } catch (err) {
+      await this.storage.deleteMany(keys);
+      throw err;
+    }
 
     const status = event.premoderation ? 'PENDING' : 'PUBLISHED';
     try {
       const created = await this.prisma.$transaction(prepared.map(p => this.prisma.photo.create({
         data: {
           eventId: event.id, guestId: guest.id, authorName: guest.name, caption: caption || null,
-          storageKey: p.key, mimeType: p.mime, size: p.file.size, status,
+          storageKey: p.key, thumbKey: p.thumbKey, mimeType: p.mime, size: p.file.size, status,
         },
         include: photoInclude,
       })));
@@ -125,7 +140,7 @@ export class GuestService {
       if (status === 'PUBLISHED') for (const d of dtos) this.realtime.publish({ eventId: event.id, type: 'photo.published', data: d });
       return { photos: dtos, awaitingApproval: status === 'PENDING' };
     } catch (err) {
-      await this.storage.deleteMany(prepared.map(p => p.key));
+      await this.storage.deleteMany(keys);
       throw err;
     }
   }

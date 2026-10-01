@@ -154,6 +154,7 @@ model Photo {
   guest      Guest?      @relation(fields: [guestId], references: [id], onDelete: SetNull)
   authorName String?
   storageKey String      @unique
+  thumbKey   String?     // small WebP for the wall grid; null for GIFs and photos uploaded before thumbnails
   mimeType   String
   size       Int
   caption    String?

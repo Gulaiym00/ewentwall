@@ -404,7 +404,7 @@ export default function PhotoWall({ slug }: { slug: string }) {
                   onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPhoto(photo.id); } }}
                   style={{ borderRadius: 10, overflow: 'hidden', position: 'relative', cursor: 'pointer', background: 'var(--border)' }}
                   className="photo-hover">
-                  <img src={photo.url} alt={photo.caption ?? ''} style={{ width: '100%', display: 'block', objectFit: 'cover', opacity: photo.status === 'pending' ? 0.5 : 1 }} loading="lazy" />
+                  <img src={photo.thumbUrl} alt={photo.caption ?? ''} style={{ width: '100%', display: 'block', objectFit: 'cover', opacity: photo.status === 'pending' ? 0.5 : 1 }} loading="lazy" />
                   {photo.status === 'pending' && (
                     <span style={{ position: 'absolute', top: 8, left: 8, padding: '3px 8px', borderRadius: 100, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 11, fontWeight: 700 }}>{t('Awaiting approval', 'На проверке')}</span>
                   )}

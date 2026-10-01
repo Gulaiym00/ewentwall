@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { EventQrModal } from '@/components/EventQr';
 import { useToast } from '@/components/Toast';
 import { Icon } from '@/ui/icons';
 import { Badge, Card, ConfirmDialog, EmptyState, IconButton, PageHeader, SearchInput, Tabs, type Tone } from '@/ui';
@@ -27,6 +28,7 @@ export default function AdminEvents() {
   const [tab, setTab] = useState<'all' | EventStatus>('all');
   const [query, setQuery] = useState('');
   const [confirm, setConfirm] = useState<{ type: 'close' | 'delete'; event: AdminEvent } | null>(null);
+  const [qrEvent, setQrEvent] = useState<AdminEvent | null>(null);
   const search = useDebounced(query.trim(), 300);
   const list = useApi(() => adminApi.events({ query: search || undefined, status: tab === 'all' ? undefined : tab, pageSize: 100 }), [search, tab]);
 
@@ -48,6 +50,11 @@ export default function AdminEvents() {
 
   const actions = (e: AdminEvent) => (
     <div className="flex justify-end gap-0.5">
+      <IconButton icon="qr" label={t(`QR code of ${e.name}`, `QR-код: ${e.name}`)} onClick={() => setQrEvent(e)} />
+      <Link href={`/dashboard/events/${e.id}`} aria-label={t(`Settings of ${e.name}`, `Настройки: ${e.name}`)} title={t('Event settings', 'Настройки события')}
+        className="inline-flex size-9 items-center justify-center rounded-[9px] text-muted hover:bg-bg hover:text-fg">
+        <Icon name="settings" size={17} />
+      </Link>
       <Link href={`/e/${e.slug}/wall`} aria-label={t(`Open live wall of ${e.name}`, `Открыть живую стену: ${e.name}`)} title={t('Open live wall', 'Открыть живую стену')}
         className="inline-flex size-9 items-center justify-center rounded-[9px] text-muted hover:bg-bg hover:text-fg">
         <Icon name="external" size={17} />
@@ -151,6 +158,8 @@ export default function AdminEvents() {
           </>
         )}
       </Card>
+
+      <EventQrModal event={qrEvent} onClose={() => setQrEvent(null)} />
 
       <ConfirmDialog
         open={!!confirm}

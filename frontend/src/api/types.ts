@@ -98,6 +98,8 @@ export interface Photo {
   id: string;
   eventId: string;
   url: string;
+  /** Small WebP for grids; the same as `url` for photos without a thumbnail. */
+  thumbUrl: string;
   author: string;
   caption: string | null;
   status: PhotoStatus;

@@ -169,6 +169,17 @@ body {
 }
 .spin { animation: spin 800ms linear infinite; }
 
+/* Scanner line sweeping over the QR card on the landing page */
+@keyframes qrScan {
+  0%, 100% { top: 0; }
+  50%      { top: calc(100% - 2px); }
+}
+.qr-scan-line {
+  position: absolute; left: -4px; right: -4px; top: 0; height: 2px; border-radius: 2px;
+  background: var(--accent); box-shadow: 0 0 10px var(--accent);
+  animation: qrScan 2.4s ease-in-out infinite;
+}
+
 /* ─── Interactive states ───────────────────────────────────── */
 .btn-press:active { transform: scale(0.97); }
 
