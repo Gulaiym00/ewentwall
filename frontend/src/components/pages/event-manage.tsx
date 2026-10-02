@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { errorMessage } from '@/api/client';
 import { eventsApi } from '@/api/events';
 import type { EventInput, OrganizerEvent } from '@/api/types';
-import { copyText, useEventQr, useQrPoster } from '@/components/EventQr';
+import { copyText, qrDataUrl, useEventQr, useQrPoster } from '@/components/EventQr';
 import { useToast } from '@/components/Toast';
 import { useApi } from '@/hooks/useApi';
 import { useOrganizer } from '@/hooks/useOrganizer';
@@ -33,12 +33,10 @@ const GUEST_SETTINGS: GuestSetting[] = [
   { key: 'allowDownloads', title: ['Allow downloads', 'Разрешить скачивание'], description: ['Guests can download photos from the wall.', 'Гости могут скачивать фото со стены.'] },
 ];
 
-/** Downloads a file produced by an authenticated endpoint. */
-async function download(objectUrl: Promise<string>, filename: string) {
-  const href = await objectUrl;
-  const a = Object.assign(document.createElement('a'), { href, download: filename });
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(href), 1000);
+/** Saves the event's QR (drawn in the browser) as a file. */
+async function downloadQr(joinUrl: string, format: 'png' | 'svg', filename: string) {
+  const href = await qrDataUrl(joinUrl, format);
+  Object.assign(document.createElement('a'), { href, download: filename }).click();
 }
 
 export default function EventManage({ id }: { id: string }) {
@@ -52,8 +50,7 @@ export default function EventManage({ id }: { id: string }) {
   const [saving, setSaving] = useState(false);
   const [confirm, setConfirm] = useState<'delete' | 'close' | null>(null);
 
-  // QR image needs the organizer's token, so it's fetched as a blob.
-  const qrUrl = useEventQr(id);
+  const qrUrl = useEventQr(event.data?.joinUrl);
   const poster = useQrPoster(event.data ?? null, qrUrl);
 
   if (event.loading && !event.data) return <PageLoader label={t('Loading event…', 'Загружаем событие…')} />;
@@ -192,8 +189,8 @@ export default function EventManage({ id }: { id: string }) {
             </div>
             {/* Plain QR for printing */}
             <div className="mt-2 grid grid-cols-2 gap-2">
-              <Button size="sm" variant="ghost" icon="download" onClick={() => download(eventsApi.qrImage(id, 'png', true), `${ev.slug}-qr.png`)}>QR PNG</Button>
-              <Button size="sm" variant="ghost" icon="download" onClick={() => download(eventsApi.qrImage(id, 'svg', true), `${ev.slug}-qr.svg`)}>QR SVG</Button>
+              <Button size="sm" variant="ghost" icon="download" onClick={() => downloadQr(ev.joinUrl, 'png', `${ev.slug}-qr.png`)}>QR PNG</Button>
+              <Button size="sm" variant="ghost" icon="download" onClick={() => downloadQr(ev.joinUrl, 'svg', `${ev.slug}-qr.svg`)}>QR SVG</Button>
             </div>
           </Card>
 

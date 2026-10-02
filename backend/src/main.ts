@@ -15,6 +15,15 @@ export async function createApp() {
 }
 
 /** Shared by main.ts and the e2e tests so both run the same pipeline. */
+/**
+ * Vercel also serves the site at per-deployment addresses (https://ewentwall-abc123-team.vercel.app,
+ * https://ewentwall-git-main-team.vercel.app). Allow those of the same project so the site works from any of them.
+ */
+function vercelDeployments(frontendUrl: string): RegExp[] {
+  const project = /^https:\/\/([a-z0-9-]+)\.vercel\.app$/.exec(frontendUrl)?.[1];
+  return project ? [new RegExp(`^https://${project}-[a-z0-9-]+\\.vercel\\.app$`)] : [];
+}
+
 export function configureApp(app: NestExpressApplication) {
   const config = app.get(ConfigService<Env, true>);
 
@@ -25,7 +34,7 @@ export function configureApp(app: NestExpressApplication) {
   const localNetwork = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/;
   const dev = config.get('NODE_ENV', { infer: true }) !== 'production';
   app.enableCors({
-    origin: dev ? [...origins, localNetwork] : origins,
+    origin: dev ? [...origins, localNetwork] : [...origins, ...vercelDeployments(config.get('FRONTEND_URL', { infer: true }))],
     credentials: true,
   });
   app.setGlobalPrefix('api');

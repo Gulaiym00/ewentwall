@@ -157,8 +157,8 @@ export default function CreateEvent() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, [step]);
 
-  // Real QR code of the created event (the endpoint needs the organizer's token).
-  const qrUrl = useEventQr(created?.id);
+  // Real QR code of the created event, drawn from its guest link.
+  const qrUrl = useEventQr(created?.joinUrl);
   const poster = useQrPoster(created, qrUrl);
 
   // Free the cover preview when it changes or the page closes.

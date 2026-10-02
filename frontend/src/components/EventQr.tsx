@@ -1,7 +1,7 @@
 'use client';
 
+import QRCode from 'qrcode';
 import { useEffect, useState } from 'react';
-import { eventsApi } from '@/api/events';
 import type { OrganizerEvent } from '@/api/types';
 import { useToast } from '@/components/Toast';
 import { Button, Modal } from '@/ui';
@@ -26,16 +26,26 @@ const typeTitle = (t: Translate, type: string) => `${TYPE_EMOJI[type] ?? '✨'} 
 const tagline = (t: Translate) => t('Share the moments', 'Поделитесь моментами');
 const scanHint = (t: Translate) => t('Scan with your phone camera', 'Наведите камеру телефона на QR-код');
 
-/** QR image of the event as an object URL (the endpoint needs the organizer's token). */
-export function useEventQr(id: string | undefined) {
+const QR_OPTIONS = { margin: 2, errorCorrectionLevel: 'M' as const, color: { dark: '#111111', light: '#ffffff' } };
+
+/** QR of the guest link, drawn in the browser: no API round trip, so it shows even while the server wakes up. */
+export function qrDataUrl(joinUrl: string, format: 'png' | 'svg' = 'png'): Promise<string> {
+  if (format === 'svg') {
+    return QRCode.toString(joinUrl, { ...QR_OPTIONS, type: 'svg' })
+      .then(svg => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
+  }
+  return QRCode.toDataURL(joinUrl, { ...QR_OPTIONS, width: 1024 });
+}
+
+/** QR image of the event's guest link as a data URL. */
+export function useEventQr(joinUrl: string | undefined) {
   const [qrUrl, setQrUrl] = useState<string | null>(null);
   useEffect(() => {
-    if (!id) return;
-    let url: string | null = null;
+    if (!joinUrl) return;
     let alive = true;
-    eventsApi.qrImage(id).then(u => { url = u; if (alive) setQrUrl(u); }, () => undefined);
-    return () => { alive = false; setQrUrl(null); if (url) URL.revokeObjectURL(url); };
-  }, [id]);
+    qrDataUrl(joinUrl).then(u => { if (alive) setQrUrl(u); }, () => undefined);
+    return () => { alive = false; setQrUrl(null); };
+  }, [joinUrl]);
   return qrUrl;
 }
 
@@ -247,7 +257,7 @@ export function useQrPoster(event: QrEvent | null, qrUrl: string | null) {
 export function EventQrModal({ event, onClose }: { event: QrEvent | null; onClose: () => void }) {
   const t = useT();
   const toast = useToast();
-  const qrUrl = useEventQr(event?.id);
+  const qrUrl = useEventQr(event?.joinUrl);
   const poster = useQrPoster(event, qrUrl);
   if (!event) return null;
 

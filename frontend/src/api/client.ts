@@ -83,13 +83,6 @@ async function request<T>(method: string, path: string, opts: Options = {}): Pro
   return body as T;
 }
 
-/** Binary responses (QR codes) that need auth headers, as an object URL. */
-export async function blobUrl(path: string, opts: Options = {}): Promise<string> {
-  const res = await send('GET', path, opts);
-  if (!res.ok) throw new ApiError(res.status, messageOf(await res.json().catch(() => undefined), res.status));
-  return URL.createObjectURL(await res.blob());
-}
-
 export const api = {
   get: <T>(path: string, opts?: Omit<Options, 'body'>) => request<T>('GET', path, opts),
   post: <T>(path: string, body?: unknown, opts?: Omit<Options, 'body'>) => request<T>('POST', path, { ...opts, body }),
