@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { errorMessage } from '@/api/client';
 import { eventsApi } from '@/api/events';
 import type { EventInput, OrganizerEvent } from '@/api/types';
-import { useEventQr, useShareQrPoster } from '@/components/EventQr';
+import { copyText, useEventQr, useQrPoster } from '@/components/EventQr';
 import { useToast } from '@/components/Toast';
 import { useApi } from '@/hooks/useApi';
 import { useOrganizer } from '@/hooks/useOrganizer';
@@ -54,7 +54,7 @@ export default function EventManage({ id }: { id: string }) {
 
   // QR image needs the organizer's token, so it's fetched as a blob.
   const qrUrl = useEventQr(id);
-  const { share: sharePoster, busy: sharingPoster } = useShareQrPoster();
+  const poster = useQrPoster(event.data ?? null, qrUrl);
 
   if (event.loading && !event.data) return <PageLoader label={t('Loading event…', 'Загружаем событие…')} />;
   if (event.error && !event.data) return <LoadError message={event.error.message} onRetry={event.reload} />;
@@ -88,12 +88,8 @@ export default function EventManage({ id }: { id: string }) {
   };
 
   const copyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(ev.joinUrl);
-      toast(t('Guest link copied', 'Ссылка для гостей скопирована'));
-    } catch {
-      toast(t('Copy failed — select the link and copy it manually', 'Не удалось скопировать — выделите ссылку и скопируйте вручную'), 'danger');
-    }
+    if (await copyText(ev.joinUrl)) toast(t('Guest link copied', 'Ссылка для гостей скопирована'));
+    else toast(t('Copy failed — tap the link above to select it', 'Не удалось скопировать — нажмите на ссылку выше, чтобы выделить её'), 'danger');
   };
 
   const s = STATUS[ev.status];
@@ -186,15 +182,19 @@ export default function EventManage({ id }: { id: string }) {
             <div className="mx-auto flex aspect-square w-full max-w-[240px] items-center justify-center rounded-xl bg-white p-2">
               {qrUrl ? <img src={qrUrl} alt={t(`QR code for ${ev.name}`, `QR-код для ${ev.name}`)} className="h-full w-full" /> : <Spinner />}
             </div>
-            <p className="mt-3 truncate text-center text-xs text-muted" title={ev.joinUrl}>{ev.joinUrl}</p>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <Button size="sm" icon="download" onClick={() => download(eventsApi.qrImage(id, 'png', true), `${ev.slug}-qr.png`)}>PNG</Button>
-              <Button size="sm" icon="download" onClick={() => download(eventsApi.qrImage(id, 'svg', true), `${ev.slug}-qr.svg`)}>SVG</Button>
-            </div>
-            <Button variant="primary" className="mt-2 w-full" icon="share" disabled={!qrUrl || sharingPoster} onClick={() => sharePoster(ev, qrUrl)}>
-              {sharingPoster ? t('Preparing…', 'Готовим…') : t('Share photo', 'Поделиться фото')}
+            <p className="mt-3 text-center text-xs break-all text-muted select-all">{ev.joinUrl}</p>
+            <Button variant="primary" className="mt-3 w-full" icon="share" disabled={!poster.ready} onClick={poster.share}>
+              {poster.ready ? t('Share photo', 'Поделиться фото') : t('Preparing…', 'Готовим…')}
             </Button>
-            <Button className="mt-2 w-full" icon="external" onClick={copyLink}>{t('Copy guest link', 'Скопировать ссылку')}</Button>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Button icon="download" disabled={!poster.ready} onClick={poster.download}>{t('Download photo', 'Скачать фото')}</Button>
+              <Button icon="external" onClick={copyLink}>{t('Copy link', 'Скопировать ссылку')}</Button>
+            </div>
+            {/* Plain QR for printing */}
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Button size="sm" variant="ghost" icon="download" onClick={() => download(eventsApi.qrImage(id, 'png', true), `${ev.slug}-qr.png`)}>QR PNG</Button>
+              <Button size="sm" variant="ghost" icon="download" onClick={() => download(eventsApi.qrImage(id, 'svg', true), `${ev.slug}-qr.svg`)}>QR SVG</Button>
+            </div>
           </Card>
 
           <Card>

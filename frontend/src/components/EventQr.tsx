@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { errorMessage } from '@/api/client';
 import { eventsApi } from '@/api/events';
 import type { OrganizerEvent } from '@/api/types';
 import { useToast } from '@/components/Toast';
@@ -177,36 +176,71 @@ async function renderPoster(event: QrEvent, qrUrl: string, t: Translate): Promis
   return new Promise((resolve, reject) => canvas.toBlob(b => (b ? resolve(b) : reject(new Error('Could not render the image'))), 'image/png'));
 }
 
-/** "Share photo": sends the poster image through the phone's share sheet, or saves it where sharing files isn't supported. */
-export function useShareQrPoster() {
+/** Copies text; falls back to a hidden textarea where the Clipboard API is blocked (in-app browsers, older phones). */
+export async function copyText(text: string): Promise<boolean> {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    const area = Object.assign(document.createElement('textarea'), { value: text, readOnly: true });
+    area.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px';
+    document.body.appendChild(area);
+    area.select();
+    area.setSelectionRange(0, text.length);
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch { /* not supported */ }
+    area.remove();
+    return ok;
+  }
+}
+
+function saveFile(file: File) {
+  const href = URL.createObjectURL(file);
+  Object.assign(document.createElement('a'), { href, download: file.name }).click();
+  setTimeout(() => URL.revokeObjectURL(href), 1000);
+}
+
+/**
+ * The poster as a PNG, rendered as soon as the QR is loaded. Phones only open the share
+ * sheet right after a tap, so the image must be ready before "Share photo" is pressed.
+ */
+export function useQrPoster(event: QrEvent | null, qrUrl: string | null) {
   const t = useT();
   const toast = useToast();
-  const [busy, setBusy] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
 
-  const share = async (event: QrEvent, qrUrl: string | null) => {
-    if (!qrUrl || busy) return;
-    setBusy(true);
+  useEffect(() => {
+    if (!event || !qrUrl) return;
+    let alive = true;
+    renderPoster(event, qrUrl, t)
+      .then(blob => { if (alive) setFile(new File([blob], `${event.slug}-qr.png`, { type: 'image/png' })); })
+      .catch(() => undefined);
+    return () => { alive = false; setFile(null); };
+  }, [event, qrUrl, t]);
+
+  const share = async () => {
+    if (!event || !file) return;
+    const text = `${tagline(t)}: ${event.joinUrl}`;
     try {
-      const blob = await renderPoster(event, qrUrl, t);
-      const file = new File([blob], `${event.slug}-qr.png`, { type: 'image/png' });
-      if (navigator.canShare?.({ files: [file] })) {
-        try {
-          await navigator.share({ files: [file], title: event.name, text: `${tagline(t)}: ${event.joinUrl}` });
-        } catch { /* cancelled */ }
-      } else {
-        const href = URL.createObjectURL(blob);
-        Object.assign(document.createElement('a'), { href, download: file.name }).click();
-        setTimeout(() => URL.revokeObjectURL(href), 1000);
-        toast(t('Image saved — share it with your guests', 'Картинка сохранена — отправьте её гостям'), 'success');
+      if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: event.name, text });
+      // Browsers that can't share images still share the link instead of silently downloading
+      else if (navigator.share) await navigator.share({ title: event.name, text, url: event.joinUrl });
+      else {
+        saveFile(file);
+        toast(t('Sharing isn’t supported here — the image was saved instead', 'Здесь нельзя поделиться — картинка сохранена'), 'success');
       }
     } catch (err) {
-      toast(errorMessage(err), 'danger');
-    } finally {
-      setBusy(false);
+      if ((err as Error)?.name === 'AbortError') return; // closed the share sheet
+      toast(t('Could not open sharing — try “Download photo”', 'Не удалось открыть «Поделиться» — попробуйте «Скачать фото»'), 'danger');
     }
   };
 
-  return { share, busy };
+  const download = () => {
+    if (!file) return;
+    saveFile(file);
+  };
+
+  return { ready: !!file, share, download };
 }
 
 /** Quick access to an event's QR from the event lists. */
@@ -214,28 +248,25 @@ export function EventQrModal({ event, onClose }: { event: QrEvent | null; onClos
   const t = useT();
   const toast = useToast();
   const qrUrl = useEventQr(event?.id);
-  const { share, busy } = useShareQrPoster();
+  const poster = useQrPoster(event, qrUrl);
   if (!event) return null;
 
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(event.joinUrl);
-      toast(t('Link copied', 'Ссылка скопирована'), 'success');
-    } catch {
-      toast(t('Copy failed — select the link and copy it manually', 'Не удалось скопировать — выделите ссылку и скопируйте вручную'), 'danger');
-    }
+    if (await copyText(event.joinUrl)) toast(t('Link copied', 'Ссылка скопирована'), 'success');
+    else toast(t('Copy failed — tap the link below to select it', 'Не удалось скопировать — нажмите на ссылку ниже, чтобы выделить её'), 'danger');
   };
 
   return (
     <Modal open onClose={onClose} title={t('Event QR code', 'QR-код события')}
       footer={<>
         <Button icon="external" onClick={copy}>{t('Copy link', 'Скопировать ссылку')}</Button>
-        <Button variant="primary" icon="share" disabled={!qrUrl || busy} onClick={() => share(event, qrUrl)}>
-          {busy ? t('Preparing…', 'Готовим…') : t('Share photo', 'Поделиться фото')}
+        <Button icon="download" disabled={!poster.ready} onClick={poster.download}>{t('Download photo', 'Скачать фото')}</Button>
+        <Button variant="primary" icon="share" disabled={!poster.ready} onClick={poster.share}>
+          {poster.ready ? t('Share photo', 'Поделиться фото') : t('Preparing…', 'Готовим…')}
         </Button>
       </>}>
       <QrPoster event={event} qrUrl={qrUrl} />
-      <p className="mt-3 truncate text-center text-xs text-muted" title={event.joinUrl}>{event.joinUrl}</p>
+      <p className="mt-3 text-center text-xs break-all text-muted select-all">{event.joinUrl}</p>
     </Modal>
   );
 }

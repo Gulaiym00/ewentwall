@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { errorMessage } from '@/api/client';
 import { eventsApi } from '@/api/events';
 import type { OrganizerEvent, Role } from '@/api/types';
-import { QrPoster, useEventQr, useShareQrPoster } from '@/components/EventQr';
+import { copyText, QrPoster, useEventQr, useQrPoster } from '@/components/EventQr';
 import { useToast } from '@/components/Toast';
 import { useRequireAuth } from '@/hooks/useAuth';
 import { useNav } from '@/hooks/useNav';
@@ -50,9 +50,9 @@ const ShareIcon = () => (
   </svg>
 );
 
-const ImageIcon = () => (
+const DownloadIcon = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-    <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
   </svg>
 );
 
@@ -159,7 +159,7 @@ export default function CreateEvent() {
 
   // Real QR code of the created event (the endpoint needs the organizer's token).
   const qrUrl = useEventQr(created?.id);
-  const { share: sharePoster, busy: sharingPoster } = useShareQrPoster();
+  const poster = useQrPoster(created, qrUrl);
 
   // Free the cover preview when it changes or the page closes.
   useEffect(() => () => { if (cover) URL.revokeObjectURL(cover.preview); }, [cover]);
@@ -211,23 +211,11 @@ export default function CreateEvent() {
 
   const handleCopy = async () => {
     if (!created) return;
-    try {
-      await navigator.clipboard.writeText(created.joinUrl);
+    if (await copyText(created.joinUrl)) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast(t('Copy failed — select the link and copy it manually', 'Не удалось скопировать — выделите ссылку и скопируйте вручную'), 'danger');
-    }
-  };
-
-  const share = async () => {
-    if (!created) return;
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: created.name, text: t('Share your photos from the event', 'Делитесь фото с события'), url: created.joinUrl });
-      } catch { /* cancelled */ }
     } else {
-      handleCopy();
+      toast(t('Copy failed — tap the link above to select it', 'Не удалось скопировать — нажмите на ссылку выше, чтобы выделить её'), 'danger');
     }
   };
 
@@ -459,7 +447,7 @@ export default function CreateEvent() {
 
             {/* QR poster: event type, name, the event's own QR and "Share the moments" */}
             {created && <QrPoster event={created} qrUrl={qrUrl} />}
-            {created && <p style={{ fontSize: 12, color: 'var(--text-2)', margin: '12px auto 28px', maxWidth: 340, overflowWrap: 'anywhere' }}>{created.joinUrl}</p>}
+            {created && <p style={{ fontSize: 12, color: 'var(--text-2)', margin: '12px auto 28px', maxWidth: 340, overflowWrap: 'anywhere', userSelect: 'all', WebkitUserSelect: 'all' }}>{created.joinUrl}</p>}
 
             {/* Share buttons */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 360, margin: '0 auto 24px' }}>
@@ -468,11 +456,11 @@ export default function CreateEvent() {
                 {copied ? <><CheckIcon /> {t('Copied!', 'Скопировано!')}</> : <><CopyIcon /> {t('Copy link', 'Скопировать ссылку')}</>}
               </button>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <button onClick={() => created && sharePoster(created, qrUrl)} disabled={!qrUrl || sharingPoster} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'none', fontSize: 14, fontWeight: 600, color: 'var(--text-2)', cursor: 'pointer', opacity: !qrUrl || sharingPoster ? 0.6 : 1 }}>
-                  {sharingPoster ? <Spinner size={16} /> : <ImageIcon />} {t('Share photo', 'Поделиться фото')}
+                <button onClick={poster.share} disabled={!poster.ready} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'none', fontSize: 14, fontWeight: 600, color: 'var(--text-2)', cursor: 'pointer', opacity: poster.ready ? 1 : 0.6 }}>
+                  {poster.ready ? <ShareIcon /> : <Spinner size={16} />} {t('Share photo', 'Поделиться фото')}
                 </button>
-                <button onClick={share} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'none', fontSize: 14, fontWeight: 600, color: 'var(--text-2)', cursor: 'pointer' }}>
-                  <ShareIcon /> {t('Share link', 'Ссылкой')}
+                <button onClick={poster.download} disabled={!poster.ready} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '13px', borderRadius: 12, border: '1.5px solid var(--border)', background: 'none', fontSize: 14, fontWeight: 600, color: 'var(--text-2)', cursor: 'pointer', opacity: poster.ready ? 1 : 0.6 }}>
+                  <DownloadIcon /> {t('Download photo', 'Скачать фото')}
                 </button>
               </div>
             </div>
