@@ -4,6 +4,7 @@ import { ThemeProvider, themeInitScript } from '@/components/ThemeProvider';
 import { ToastProvider } from '@/components/Toast';
 import { AuthProvider } from '@/hooks/useAuth';
 import { LocaleProvider } from '@/utils/locale';
+import { landingDict } from '@/utils/i18n';
 import { getLocale } from '@/utils/locale.server';
 import './globals.css';
 
@@ -20,10 +21,17 @@ const playfair = Playfair_Display({
   style: ['normal', 'italic'],
 });
 
-export const metadata: Metadata = {
-  title: 'EventWall',
-  description: 'Let your guests create one shared live photo wall — directly from their phones.',
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { meta } = landingDict[await getLocale()];
+  return {
+    title: 'EventWall',
+    description: 'Let your guests create one shared live photo wall — directly from their phones.',
+    // Link previews in messengers; the image comes from app/opengraph-image.tsx.
+    // Pages must not set their own `openGraph`, or they drop that image.
+    openGraph: { title: meta.title, description: meta.description, siteName: 'EventWall', type: 'website' },
+    twitter: { card: 'summary_large_image' },
+  };
+}
 
 export const viewport: Viewport = {
   width: 'device-width',

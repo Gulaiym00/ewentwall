@@ -1,6 +1,6 @@
 // Placeholder QR pattern until real codes are generated from the event URL.
 // Always render it dark-on-light (see callers): inverted QR codes often fail to scan.
-const PATTERN = [
+export const QR_PATTERN = [
   [1,1,1,1,1,1,1,0,1,0,1,0,1,0,1,1,1,1,1,1,1],
   [1,0,0,0,0,0,1,0,0,1,0,1,0,0,1,0,0,0,0,0,1],
   [1,0,1,1,1,0,1,0,1,0,1,0,1,0,1,0,1,1,1,0,1],
@@ -25,10 +25,10 @@ const PATTERN = [
 ];
 
 export function FakeQR({ size = 100 }: { size?: number }) {
-  const cell = size / PATTERN.length;
+  const cell = size / QR_PATTERN.length;
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} role="img" aria-label="QR code">
-      {PATTERN.map((row, r) =>
+      {QR_PATTERN.map((row, r) =>
         row.map((on, c) => (on ? <rect key={`${r}-${c}`} x={c * cell} y={r * cell} width={cell} height={cell} fill="currentColor" /> : null)),
       )}
     </svg>
