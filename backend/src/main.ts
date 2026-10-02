@@ -20,8 +20,12 @@ export function configureApp(app: NestExpressApplication) {
 
   app.set('trust proxy', 1); // correct client IPs behind a reverse proxy (rate limit, audit log)
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } })); // photos are loaded by the frontend origin
+  const origins = [config.get('FRONTEND_URL', { infer: true }), ...config.get('CORS_ORIGINS', { infer: true })];
+  // In development the site is also opened by IP from phones on the LAN, and that IP changes.
+  const localNetwork = /^http:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+)(:\d+)?$/;
+  const dev = config.get('NODE_ENV', { infer: true }) !== 'production';
   app.enableCors({
-    origin: [config.get('FRONTEND_URL', { infer: true }), ...config.get('CORS_ORIGINS', { infer: true })],
+    origin: dev ? [...origins, localNetwork] : origins,
     credentials: true,
   });
   app.setGlobalPrefix('api');

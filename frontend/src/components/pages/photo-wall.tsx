@@ -14,6 +14,10 @@ import { PageLoader, Spinner } from '@/ui/loader';
 import { plural, timeAgo } from '@/utils/format';
 import { LanguageToggle, useT } from '@/utils/locale';
 
+/** iPhone / iPad (iPadOS reports itself as a Mac with touch): downloads go to Files, not Photos. */
+const isAppleMobile = () =>
+  /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
 // ─── Icons ────────────────────────────────────────────────────────────────────
 const XIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -24,6 +28,12 @@ const DownloadIcon = () => (
   <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
     <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
     <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+  </svg>
+);
+const ShareIcon = () => (
+  <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+    <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
   </svg>
 );
 const FlagIcon = () => (
@@ -102,6 +112,12 @@ export default function PhotoWall({ slug }: { slug: string }) {
   const [comments, setComments] = useState<Comment[] | null>(null);
   const [newComment, setNewComment] = useState('');
   const [reportOpen, setReportOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
+  // The share menu only opens after a tap, so this browser check never runs during server rendering.
+  const savesToPhotos = shareOpen && isAppleMobile();
+  // The selected photo as a file, fetched when the share menu opens: phones only open
+  // the share sheet right after a tap, so it must be ready before "Share" is pressed.
+  const shareFile = useRef<{ id: string; file: Promise<File | null> } | null>(null);
   const [heartAnim, setHeartAnim] = useState<string | null>(null);
   const lastTap = useRef<{ id: string; at: number } | null>(null);
   const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -179,7 +195,7 @@ export default function PhotoWall({ slug }: { slug: string }) {
   const selectedPhoto = selectedIdx >= 0 ? items[selectedIdx] : null;
   const hasPrev = selectedIdx > 0;
   const hasNext = selectedIdx >= 0 && selectedIdx < items.length - 1;
-  const openPhoto = (id: string | null) => { setSelectedId(id); setComments(null); setShowComments(false); setReportOpen(false); };
+  const openPhoto = (id: string | null) => { setSelectedId(id); setComments(null); setShowComments(false); setReportOpen(false); setShareOpen(false); };
   const showPrev = () => { if (hasPrev) openPhoto(items[selectedIdx - 1].id); };
   const showNext = () => { if (hasNext) openPhoto(items[selectedIdx + 1].id); };
   const closeViewer = () => openPhoto(null);
@@ -191,7 +207,7 @@ export default function PhotoWall({ slug }: { slug: string }) {
     document.body.style.overflow = 'hidden';
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
-      if (e.key === 'Escape') { if (showComments) setShowComments(false); else if (reportOpen) setReportOpen(false); else closeViewer(); }
+      if (e.key === 'Escape') { if (showComments) setShowComments(false); else if (reportOpen) setReportOpen(false); else if (shareOpen) setShareOpen(false); else closeViewer(); }
       else if (e.key === 'ArrowLeft') showPrev();
       else if (e.key === 'ArrowRight') showNext();
     };
@@ -282,16 +298,55 @@ export default function PhotoWall({ slug }: { slug: string }) {
     }
   };
 
+  const photoFile = (photo: Photo) => {
+    if (shareFile.current?.id !== photo.id) {
+      const file = fetch(photo.url)
+        .then(r => (r.ok ? r.blob() : Promise.reject()))
+        .then(blob => new File([blob], `photo-${photo.id.slice(0, 8)}.${blob.type.split('/')[1] ?? 'jpg'}`, { type: blob.type || 'image/jpeg' }))
+        .catch(() => null);
+      shareFile.current = { id: photo.id, file };
+    }
+    return shareFile.current.file;
+  };
+
+  const toggleShareMenu = () => {
+    if (selectedPhoto && !shareOpen) photoFile(selectedPhoto);
+    setReportOpen(false);
+    setShareOpen(o => !o);
+  };
+
+  const wallLink = () => `${window.location.origin}/e/${slug}/wall`;
+
+  const handleShare = async () => {
+    if (!selectedPhoto) return;
+    setShareOpen(false);
+    const text = t(`A moment from ${ev?.name ?? 'the event'}`, `Момент с события «${ev?.name ?? ''}»`);
+    const file = ev?.settings.allowDownloads ? await photoFile(selectedPhoto) : null;
+    try {
+      if (file && navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: ev?.name, text });
+      else if (navigator.share) await navigator.share({ title: ev?.name, text, url: wallLink() });
+      else {
+        await navigator.clipboard.writeText(wallLink());
+        toast(t('Link to the wall copied', 'Ссылка на стену скопирована'));
+      }
+    } catch (err) {
+      if ((err as Error)?.name !== 'AbortError') toast(t('Could not share the photo', 'Не удалось поделиться фото'), 'danger');
+    }
+  };
+
   const handleDownload = async () => {
     if (!selectedPhoto) return;
-    try {
-      const blob = await (await fetch(selectedPhoto.url)).blob();
-      const href = URL.createObjectURL(blob);
-      Object.assign(document.createElement('a'), { href, download: `photo-${selectedPhoto.id.slice(0, 8)}.${blob.type.split('/')[1] ?? 'jpg'}` }).click();
-      setTimeout(() => URL.revokeObjectURL(href), 1000);
-    } catch {
-      window.open(selectedPhoto.url, '_blank', 'noopener');
+    setShareOpen(false);
+    const file = await photoFile(selectedPhoto);
+    if (!file) { window.open(selectedPhoto.url, '_blank', 'noopener'); return; }
+    // iPhone saves downloads to the Files app; the share sheet's "Save Image" puts the photo in Photos.
+    if (isAppleMobile() && navigator.canShare?.({ files: [file] })) {
+      try { await navigator.share({ files: [file] }); } catch { /* cancelled */ }
+      return;
     }
+    const href = URL.createObjectURL(file);
+    Object.assign(document.createElement('a'), { href, download: file.name }).click();
+    setTimeout(() => URL.revokeObjectURL(href), 1000);
   };
 
   const handleDelete = async () => {
@@ -317,6 +372,7 @@ export default function PhotoWall({ slug }: { slug: string }) {
     );
   }
 
+  const menuItem: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '10px', borderRadius: 9, border: 'none', background: 'none', fontSize: 14, fontWeight: 600, color: 'var(--text)', cursor: 'pointer' };
   const iconBtn: React.CSSProperties = { width: 36, height: 36, borderRadius: 9, border: '1px solid rgba(255,255,255,0.15)', background: 'rgba(255,255,255,0.08)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' };
 
   return (
@@ -458,15 +514,33 @@ export default function PhotoWall({ slug }: { slug: string }) {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexShrink: 0, position: 'relative' }}>
-              {ev.settings.allowDownloads && (
-                <button onClick={handleDownload} aria-label={t('Download photo', 'Скачать фото')} style={iconBtn}><DownloadIcon /></button>
-              )}
+              {/* With downloads off only the link to the wall is shared, never the file */}
+              <button onClick={ev.settings.allowDownloads ? toggleShareMenu : handleShare} aria-label={t('Share photo', 'Поделиться фото')}
+                aria-haspopup={ev.settings.allowDownloads ? 'menu' : undefined} aria-expanded={ev.settings.allowDownloads ? shareOpen : undefined} style={iconBtn}>
+                <ShareIcon />
+              </button>
               {selectedPhoto.mine ? (
                 <button onClick={handleDelete} aria-label={t('Delete my photo', 'Удалить моё фото')} style={iconBtn}><TrashIcon /></button>
               ) : (
-                <button onClick={() => setReportOpen(o => !o)} aria-label={t('Report photo', 'Пожаловаться')} aria-expanded={reportOpen} style={{ ...iconBtn, color: 'rgba(255,255,255,0.6)' }}><FlagIcon /></button>
+                <button onClick={() => { setShareOpen(false); setReportOpen(o => !o); }} aria-label={t('Report photo', 'Пожаловаться')} aria-expanded={reportOpen} style={{ ...iconBtn, color: 'rgba(255,255,255,0.6)' }}><FlagIcon /></button>
               )}
               <button onClick={closeViewer} aria-label={t('Close viewer', 'Закрыть просмотр')} style={iconBtn}><XIcon /></button>
+
+              {shareOpen && (
+                <div role="menu" style={{ position: 'absolute', top: 44, right: 0, width: 220, background: 'var(--surface)', color: 'var(--text)', borderRadius: 14, boxShadow: 'var(--shadow-lg)', padding: 6, zIndex: 2 }} className="scale-in">
+                  <button role="menuitem" onClick={handleShare} style={menuItem}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                    <span style={{ color: 'var(--text-2)', display: 'flex' }}><ShareIcon /></span>{t('Share photo', 'Поделиться фото')}
+                  </button>
+                  <button role="menuitem" onClick={handleDownload} style={menuItem}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                    <span style={{ color: 'var(--text-2)', display: 'flex' }}><DownloadIcon /></span>
+                    {savesToPhotos ? t('Save to gallery', 'Сохранить в галерею') : t('Download', 'Скачать')}
+                  </button>
+                </div>
+              )}
 
               {reportOpen && (
                 <div role="menu" style={{ position: 'absolute', top: 44, right: 0, width: 240, background: 'var(--surface)', color: 'var(--text)', borderRadius: 14, boxShadow: 'var(--shadow-lg)', padding: 6, zIndex: 2 }} className="scale-in">

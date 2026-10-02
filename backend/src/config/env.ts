@@ -1,6 +1,8 @@
 // Validates process.env once at startup (ConfigModule `validate`), so a missing
 // secret fails fast with a clear message instead of at the first request.
 
+import { networkInterfaces } from 'node:os';
+
 export interface Env {
   NODE_ENV: 'development' | 'production' | 'test';
   PORT: number;
@@ -24,6 +26,13 @@ export interface Env {
   SUPABASE_URL?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
   SUPABASE_BUCKET: string;
+}
+
+/** This computer's LAN IPv4 (home Wi-Fi first), for FRONTEND_URL/API_URL=auto in local development. */
+export function lanAddress(): string {
+  const ips = Object.values(networkInterfaces()).flat()
+    .filter(a => a && a.family === 'IPv4' && !a.internal).map(a => a!.address);
+  return ips.find(ip => ip.startsWith('192.168.')) ?? ips.find(ip => ip.startsWith('10.')) ?? ips[0] ?? 'localhost';
 }
 
 const WEAK_SECRETS = new Set(['', 'change-me', 'secret', 'changeme']);
@@ -51,12 +60,18 @@ export function validateEnv(raw: Record<string, unknown>): Env {
   };
 
   const nodeEnv = str('NODE_ENV', 'development');
+  const port = int('PORT', 8000);
+  // "auto": http://<LAN IP>:<port>, so QR links and photo URLs follow the computer's current IP.
+  const url = (key: string, fallback: string, autoPort: number) => {
+    const v = str(key, fallback).replace(/\/$/, '');
+    return v === 'auto' ? `http://${lanAddress()}:${autoPort}` : v;
+  };
   const env: Env = {
     NODE_ENV: (['development', 'production', 'test'].includes(nodeEnv) ? nodeEnv : 'development') as Env['NODE_ENV'],
-    PORT: int('PORT', 8000),
-    FRONTEND_URL: str('FRONTEND_URL', 'http://localhost:3000').replace(/\/$/, ''),
+    PORT: port,
+    FRONTEND_URL: url('FRONTEND_URL', 'http://localhost:3000', 3000),
     CORS_ORIGINS: str('CORS_ORIGINS', '').split(',').map(o => o.trim().replace(/\/$/, '')).filter(Boolean),
-    API_URL: str('API_URL', 'http://localhost:8000').replace(/\/$/, ''),
+    API_URL: url('API_URL', 'http://localhost:8000', port),
     DATABASE_URL: str('DATABASE_URL'),
     JWT_ACCESS_SECRET: secret('JWT_ACCESS_SECRET'),
     JWT_REFRESH_SECRET: secret('JWT_REFRESH_SECRET'),

@@ -8,7 +8,17 @@ import type { TokenPair } from './types';
 // The backend rotates the refresh token on every use and treats reuse as theft,
 // so refreshes are serialised across tabs with the Web Locks API.
 
-export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api').replace(/\/$/, '');
+// Without NEXT_PUBLIC_API_URL (local development) the API is assumed on the same host as the page,
+// so the site works from localhost and from a phone on the LAN even when the computer's IP changes.
+function apiUrl(): string {
+  const fixed = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (fixed) return fixed.replace(/\/$/, '');
+  const port = process.env.NEXT_PUBLIC_API_PORT || '8000';
+  const host = typeof window === 'undefined' ? 'localhost' : window.location.hostname;
+  return `http://${host}:${port}/api`;
+}
+
+export const API_URL = apiUrl();
 
 const REFRESH_KEY = 'epw.refreshToken';
 const LOCK = 'epw.refresh';
