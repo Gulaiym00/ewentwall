@@ -20,7 +20,12 @@ async function seedAdmin() {
     throw new Error('Set ADMIN_EMAIL and a strong ADMIN_PASSWORD (12+ characters) in .env before seeding');
   }
   const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
+  if (existing && process.env.ADMIN_RESET_PASSWORD === 'true') {
+    // Forgotten admin password: set ADMIN_RESET_PASSWORD=true once, restart, then remove it.
+    await prisma.user.update({ where: { email }, data: { role: 'ADMIN', status: 'ACTIVE', passwordHash: await hash(password) } });
+    await prisma.refreshToken.updateMany({ where: { userId: existing.id, revokedAt: null }, data: { revokedAt: new Date() } });
+    console.log(`✓ Admin ${email} password reset from ADMIN_PASSWORD — remove ADMIN_RESET_PASSWORD now`);
+  } else if (existing) {
     // Never overwrite an existing password; only make sure the account is an active admin.
     await prisma.user.update({ where: { email }, data: { role: 'ADMIN', status: 'ACTIVE' } });
     console.log(`✓ Admin ${email} already exists (role ensured)`);
