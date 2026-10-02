@@ -8,10 +8,9 @@ export const LOCALES: Language[] = ['en', 'ru'];
 
 export const isLocale = (v: unknown): v is Language => v === 'en' || v === 'ru';
 
-/** Cookie wins; otherwise the browser's preferred language; otherwise English. */
-export function pickLocale(cookie: string | undefined, acceptLanguage: string | null): Language {
-  if (isLocale(cookie)) return cookie;
-  return /^\s*ru\b/i.test(acceptLanguage ?? '') ? 'ru' : 'en';
+/** The language the visitor picked with the EN/RU toggle; otherwise Russian. */
+export function pickLocale(cookie: string | undefined): Language {
+  return isLocale(cookie) ? cookie : 'ru';
 }
 
 /** Remember the choice for a year; read by the server on the next render. */

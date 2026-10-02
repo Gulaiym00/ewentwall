@@ -11,7 +11,7 @@ import { setFormatLocale } from './format';
 
 interface LocaleCtx { locale: Language; setLocale: (l: Language) => void; switching: boolean }
 
-const Ctx = createContext<LocaleCtx>({ locale: 'en', setLocale: () => {}, switching: false });
+const Ctx = createContext<LocaleCtx>({ locale: 'ru', setLocale: () => {}, switching: false });
 
 export function LocaleProvider({ initial, children }: { initial: Language; children: React.ReactNode }) {
   const router = useRouter();
