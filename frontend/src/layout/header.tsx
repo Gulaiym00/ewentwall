@@ -1,14 +1,18 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Language } from "@/api/types";
+import { useAuth } from "@/hooks/useAuth";
 import { useNav } from "@/hooks/useNav";
+import { Avatar } from "@/ui";
 import { Icon } from "@/ui/icons";
 import { saveLocale, type LandingDict } from "@/utils/i18n";
 
 export default function Header({ locale, t }: { locale: Language; t: LandingDict["header"] }) {
   const { navigate, dark, toggleDark } = useNav();
+  const { status, user } = useAuth();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [switching, startSwitch] = useTransition();
@@ -166,27 +170,38 @@ export default function Header({ locale, t }: { locale: Language; t: LandingDict
               <Icon name="moon" size={18} />
             )}
           </button>
-          {/* Sign in */}
-          <button
-            onClick={() => navigate("login")}
-            style={{
-              padding: "7px 14px",
-              borderRadius: 8,
-              border: "1px solid var(--border)",
-              background: "none",
-              fontSize: 14,
-              fontWeight: 500,
-              color: "var(--text)",
-              cursor: "pointer",
-              whiteSpace: "nowrap",
-            }}
-            className="hidden md:block"
-          >
-            {t.signIn}
-          </button>
+          {/* Signed in: avatar opens the profile. Signed out: "Sign in". */}
+          {user ? (
+            <Link
+              href="/dashboard/profile"
+              aria-label={t.profile}
+              title={t.profile}
+              style={{ display: "flex", borderRadius: "50%", flexShrink: 0 }}
+            >
+              <Avatar src={user.avatarUrl ?? undefined} name={user.name} size={34} />
+            </Link>
+          ) : status === "anonymous" ? (
+            <button
+              onClick={() => navigate("login")}
+              style={{
+                padding: "7px 14px",
+                borderRadius: 8,
+                border: "1px solid var(--border)",
+                background: "none",
+                fontSize: 14,
+                fontWeight: 500,
+                color: "var(--text)",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+              className="hidden md:block"
+            >
+              {t.signIn}
+            </button>
+          ) : null}
           {/* CTA */}
           <button
-            onClick={() => navigate("register")}
+            onClick={() => navigate(user ? "create-event" : "register")}
             style={{
               padding: "7px 16px",
               borderRadius: 8,
@@ -263,7 +278,7 @@ export default function Header({ locale, t }: { locale: Language; t: LandingDict
           )}
           <div style={{ marginTop: 16, gap: 10 }} className="flex md:hidden">
             <button
-              onClick={() => navigate("login")}
+              onClick={() => (user ? router.push("/dashboard/profile") : navigate("login"))}
               style={{
                 flex: 1,
                 padding: "12px",
@@ -276,10 +291,10 @@ export default function Header({ locale, t }: { locale: Language; t: LandingDict
                 cursor: "pointer",
               }}
             >
-              {t.signIn}
+              {user ? t.profile : t.signIn}
             </button>
             <button
-              onClick={() => navigate("register")}
+              onClick={() => navigate(user ? "create-event" : "register")}
               style={{
                 flex: 1,
                 padding: "12px",

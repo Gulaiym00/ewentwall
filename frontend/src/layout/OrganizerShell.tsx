@@ -86,6 +86,9 @@ export default function OrganizerShell({ children }: { children: React.ReactNode
           </nav>
 
           <div className="flex flex-col gap-0.5 border-t border-line p-3">
+            <Link href="/" className="flex h-10 items-center gap-2.5 rounded-[10px] px-3 text-[13px] font-medium text-muted hover:bg-bg hover:text-fg">
+              <Icon name="arrowLeft" size={16} /> {t('Back to the site', 'Вернуться на сайт')}
+            </Link>
             <button type="button" onClick={toggleDark}
               className="flex h-10 items-center gap-2.5 rounded-[10px] px-3 text-[13px] font-medium text-muted hover:bg-bg hover:text-fg">
               <Icon name={dark ? 'sun' : 'moon'} size={16} /> {dark ? t('Light mode', 'Светлая тема') : t('Dark mode', 'Тёмная тема')}
