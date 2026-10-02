@@ -29,10 +29,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover', // enables env(safe-area-inset-*) on notched phones
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#FAFAF9' },
-    { media: '(prefers-color-scheme: dark)', color: '#0F0F10' },
-  ],
+  themeColor: '#FAFAF9', // switched to the dark color by ThemeProvider when the site is in dark mode
 };
 
 export default async function RootLayout({ children }: LayoutProps<'/'>) {

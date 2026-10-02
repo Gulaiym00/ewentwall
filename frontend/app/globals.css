@@ -22,6 +22,9 @@
 }
 
 :root {
+  /* The site has its own light/dark toggle: "only" stops phone browsers (Chrome auto-dark,
+     Samsung Internet) from force-darkening the light theme. */
+  color-scheme: only light;
   --bg: #FAFAF9;
   --surface: #FFFFFF;
   --text: #1C1917;
@@ -44,6 +47,7 @@
 }
 
 .dark {
+  color-scheme: only dark;
   --bg: #0F0F10;
   --surface: #1A1A1C;
   --text: #F5F5F4;
