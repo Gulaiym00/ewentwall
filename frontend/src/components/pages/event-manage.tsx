@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { errorMessage } from '@/api/client';
 import { eventsApi } from '@/api/events';
 import type { EventInput, OrganizerEvent } from '@/api/types';
-import { copyText, qrDataUrl, useEventQr, useQrPoster } from '@/components/EventQr';
+import { copyText, QrActions, useEventQr } from '@/components/EventQr';
 import { useToast } from '@/components/Toast';
 import { useApi } from '@/hooks/useApi';
 import { useOrganizer } from '@/hooks/useOrganizer';
@@ -33,12 +33,6 @@ const GUEST_SETTINGS: GuestSetting[] = [
   { key: 'allowDownloads', title: ['Allow downloads', 'Разрешить скачивание'], description: ['Guests can download photos from the wall.', 'Гости могут скачивать фото со стены.'] },
 ];
 
-/** Saves the event's QR (drawn in the browser) as a file. */
-async function downloadQr(joinUrl: string, format: 'png' | 'svg', filename: string) {
-  const href = await qrDataUrl(joinUrl, format);
-  Object.assign(document.createElement('a'), { href, download: filename }).click();
-}
-
 export default function EventManage({ id }: { id: string }) {
   const t = useT();
   const toast = useToast();
@@ -51,7 +45,6 @@ export default function EventManage({ id }: { id: string }) {
   const [confirm, setConfirm] = useState<'delete' | 'close' | null>(null);
 
   const qrUrl = useEventQr(event.data?.joinUrl);
-  const poster = useQrPoster(event.data ?? null, qrUrl);
 
   if (event.loading && !event.data) return <PageLoader label={t('Loading event…', 'Загружаем событие…')} />;
   if (event.error && !event.data) return <LoadError message={event.error.message} onRetry={event.reload} />;
@@ -180,18 +173,7 @@ export default function EventManage({ id }: { id: string }) {
               {qrUrl ? <img src={qrUrl} alt={t(`QR code for ${ev.name}`, `QR-код для ${ev.name}`)} className="h-full w-full" /> : <Spinner />}
             </div>
             <p className="mt-3 text-center text-xs break-all text-muted select-all">{ev.joinUrl}</p>
-            <Button variant="primary" className="mt-3 w-full" icon="share" disabled={!poster.ready} onClick={poster.share}>
-              {poster.ready ? t('Share photo', 'Поделиться фото') : t('Preparing…', 'Готовим…')}
-            </Button>
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <Button icon="download" disabled={!poster.ready} onClick={poster.download}>{t('Download photo', 'Скачать фото')}</Button>
-              <Button icon="external" onClick={copyLink}>{t('Copy link', 'Скопировать ссылку')}</Button>
-            </div>
-            {/* Plain QR for printing */}
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <Button size="sm" variant="ghost" icon="download" onClick={() => downloadQr(ev.joinUrl, 'png', `${ev.slug}-qr.png`)}>QR PNG</Button>
-              <Button size="sm" variant="ghost" icon="download" onClick={() => downloadQr(ev.joinUrl, 'svg', `${ev.slug}-qr.svg`)}>QR SVG</Button>
-            </div>
+            <QrActions event={ev} qrUrl={qrUrl} onCopy={copyLink} />
           </Card>
 
           <Card>

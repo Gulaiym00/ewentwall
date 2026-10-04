@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import type { OrganizerEvent } from '@/api/types';
 import { useToast } from '@/components/Toast';
 import { Button, Modal } from '@/ui';
+import { Icon } from '@/ui/icons';
 import { Spinner } from '@/ui/loader';
 import { formatLongDate } from '@/utils/format';
 import { eventTypeLabel } from '@/utils/labels';
@@ -35,6 +36,12 @@ export function qrDataUrl(joinUrl: string, format: 'png' | 'svg' = 'png'): Promi
       .then(svg => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
   }
   return QRCode.toDataURL(joinUrl, { ...QR_OPTIONS, width: 1024 });
+}
+
+/** Saves the plain QR (for printing) as a PNG or SVG file. */
+async function downloadQr(event: QrEvent, format: 'png' | 'svg') {
+  const href = await qrDataUrl(event.joinUrl, format);
+  Object.assign(document.createElement('a'), { href, download: `${event.slug}-qr.${format}` }).click();
 }
 
 /** QR image of the event's guest link as a data URL. */
@@ -253,12 +260,54 @@ export function useQrPoster(event: QrEvent | null, qrUrl: string | null) {
   return { ready: !!file, share, download };
 }
 
+/**
+ * Share / download / copy buttons under a QR. "Download" opens a format choice:
+ * the poster (PNG) or the plain QR as PNG or SVG.
+ */
+export function QrActions({ event, qrUrl, onCopy }: { event: QrEvent; qrUrl: string | null; onCopy: () => void }) {
+  const t = useT();
+  const poster = useQrPoster(event, qrUrl);
+  const [formatsOpen, setFormatsOpen] = useState(false);
+
+  const formats: { label: string; hint: string; ext: string; disabled?: boolean; save: () => void }[] = [
+    { label: t('Poster', 'Постер'), hint: t('QR with the event name and date', 'QR с названием и датой события'), ext: 'PNG', disabled: !poster.ready, save: poster.download },
+    { label: t('QR code only', 'Только QR-код'), hint: t('Image for messengers and sites', 'Картинка для мессенджеров и сайтов'), ext: 'PNG', save: () => downloadQr(event, 'png') },
+    { label: t('QR code only', 'Только QR-код'), hint: t('Vector — prints sharp at any size', 'Вектор — чёткая печать любого размера'), ext: 'SVG', save: () => downloadQr(event, 'svg') },
+  ];
+
+  return (
+    <div className="mt-4 space-y-2">
+      <Button variant="primary" className="w-full" icon="share" disabled={!poster.ready} onClick={poster.share}>
+        {poster.ready ? t('Share photo', 'Поделиться фото') : t('Preparing…', 'Готовим…')}
+      </Button>
+      <Button className="w-full" icon="download" aria-expanded={formatsOpen} onClick={() => setFormatsOpen(v => !v)}>
+        {t('Download', 'Скачать')}
+        <Icon name="chevronDown" size={16} className={formatsOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
+      </Button>
+      {formatsOpen && (
+        <div className="overflow-hidden rounded-xl border border-line">
+          {formats.map(f => (
+            <button key={f.label + f.ext} type="button" disabled={f.disabled} onClick={() => { f.save(); setFormatsOpen(false); }}
+              className="flex w-full items-center gap-3 border-b border-line px-3 py-2.5 text-left transition-colors last:border-b-0 hover:bg-bg disabled:opacity-50">
+              <span className="w-11 shrink-0 rounded-md bg-accent/10 py-1 text-center text-xs font-bold text-accent">{f.ext}</span>
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold">{f.label}</span>
+                <span className="block text-xs text-muted">{f.hint}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      <Button className="w-full" icon="external" onClick={onCopy}>{t('Copy link', 'Скопировать ссылку')}</Button>
+    </div>
+  );
+}
+
 /** Quick access to an event's QR from the event lists. */
 export function EventQrModal({ event, onClose }: { event: QrEvent | null; onClose: () => void }) {
   const t = useT();
   const toast = useToast();
   const qrUrl = useEventQr(event?.joinUrl);
-  const poster = useQrPoster(event, qrUrl);
   if (!event) return null;
 
   const copy = async () => {
@@ -267,16 +316,10 @@ export function EventQrModal({ event, onClose }: { event: QrEvent | null; onClos
   };
 
   return (
-    <Modal open onClose={onClose} title={t('Event QR code', 'QR-код события')}
-      footer={<>
-        <Button icon="external" onClick={copy}>{t('Copy link', 'Скопировать ссылку')}</Button>
-        <Button icon="download" disabled={!poster.ready} onClick={poster.download}>{t('Download photo', 'Скачать фото')}</Button>
-        <Button variant="primary" icon="share" disabled={!poster.ready} onClick={poster.share}>
-          {poster.ready ? t('Share photo', 'Поделиться фото') : t('Preparing…', 'Готовим…')}
-        </Button>
-      </>}>
+    <Modal open onClose={onClose} title={t('Event QR code', 'QR-код события')}>
       <QrPoster event={event} qrUrl={qrUrl} />
       <p className="mt-3 text-center text-xs break-all text-muted select-all">{event.joinUrl}</p>
+      <div className="mx-auto max-w-[340px] pb-2"><QrActions event={event} qrUrl={qrUrl} onCopy={copy} /></div>
     </Modal>
   );
 }
