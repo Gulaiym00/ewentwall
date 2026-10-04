@@ -16,6 +16,7 @@ export const adminApi = {
     api.get<Paged<AdminUser>>('/admin/users', { query }),
   inviteUser: (body: { name?: string; email: string; role: Role }) => api.post<AdminUser>('/admin/users/invite', body),
   updateUser: (id: string, body: { role?: Role; status?: 'active' | 'blocked' }) => api.patch<AdminUser>(`/admin/users/${id}`, body),
+  setUserPassword: (id: string, password: string) => api.post(`/admin/users/${id}/password`, { password }),
   deleteUser: (id: string) => api.delete(`/admin/users/${id}`),
 
   events: (query: { query?: string; status?: EventStatus; page?: number; pageSize?: number }) =>

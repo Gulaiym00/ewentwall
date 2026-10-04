@@ -4,7 +4,7 @@ import type { Request } from 'express';
 import { clientIp, CurrentUser, Roles, type AuthUser } from '../common/auth.js';
 import { upper } from '../common/serialize.js';
 import {
-  AuditQuery, EventsQuery, InviteUserDto, ReportsQuery, ResolveReportsDto, ReviewsQuery, SiteContentDto, UpdateEventStatusDto,
+  AuditQuery, EventsQuery, InviteUserDto, ReportsQuery, ResolveReportsDto, ReviewsQuery, SetUserPasswordDto, SiteContentDto, UpdateEventStatusDto,
   UpdateReviewDto, UpdateSettingsDto, UpdateUserDto, UsersQuery,
 } from './admin.dto.js';
 import { AdminService } from './admin.service.js';
@@ -41,6 +41,12 @@ export class AdminController {
   @ApiOperation({ summary: 'Change role or block/unblock (blocking ends their sessions)' })
   updateUser(@CurrentUser() me: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateUserDto, @Req() req: Request) {
     return this.admin.updateUser(me, id, dto, clientIp(req));
+  }
+
+  @Post('users/:id/password') @HttpCode(204)
+  @ApiOperation({ summary: 'Set a new password for a user who forgot theirs (signs out their sessions)' })
+  setUserPassword(@CurrentUser() me: AuthUser, @Param('id', ParseUUIDPipe) id: string, @Body() dto: SetUserPasswordDto, @Req() req: Request) {
+    return this.admin.setUserPassword(me, id, dto.password, clientIp(req));
   }
 
   @Delete('users/:id') @HttpCode(204)

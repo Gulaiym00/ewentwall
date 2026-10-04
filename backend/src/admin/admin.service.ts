@@ -4,6 +4,7 @@ import type { Env } from '../config/env.js';
 import type { AuthUser } from '../common/auth.js';
 import { fileUrl, lower, upper, userDto } from '../common/serialize.js';
 import type { Locale, Prisma, ReportReason, ReportStatus } from '../generated/prisma/client.js';
+import { hashPassword } from '../auth/auth.service.js';
 import { TokensService } from '../auth/tokens.service.js';
 import { EventsService } from '../events/events.service.js';
 import { AuditService } from '../platform/audit.service.js';
@@ -138,6 +139,19 @@ export class AdminService {
     if (role && role !== user.role) await this.audit.log(admin, 'USER', `Changed role ${lower(user.role)} → ${dto.role}`, user.email, ip);
     if (status && status !== user.status) await this.audit.log(admin, 'USER', status === 'BLOCKED' ? 'Blocked user' : 'Unblocked user', user.email, ip);
     return userDto(updated, this.storage);
+  }
+
+  /** Passwords are stored only as argon2 hashes, so the admin can't read one — only set a new one. */
+  async setUserPassword(admin: AuthUser, id: string, password: string, ip?: string) {
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user) throw new NotFoundException('User not found');
+    await this.prisma.user.update({
+      where: { id },
+      // A pending invite becomes a working account once it has a password.
+      data: { passwordHash: await hashPassword(password), status: user.status === 'PENDING' ? 'ACTIVE' : undefined },
+    });
+    await this.tokens.revokeAll(id); // old sessions end; the user signs in with the new password
+    await this.audit.log(admin, 'USER', 'Reset password', user.email, ip);
   }
 
   async deleteUser(admin: AuthUser, id: string, ip?: string) {

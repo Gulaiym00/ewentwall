@@ -17,6 +17,12 @@ import { LoadError } from '@/ui/loader';
 import { useT } from '@/utils/locale';
 import { roleLabel, userStatusLabel } from '@/utils/labels';
 
+/** Readable random password without look-alike characters (0/O, 1/l/I). */
+const generatePassword = () => {
+  const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from(crypto.getRandomValues(new Uint32Array(12)), n => chars[n % chars.length]).join('');
+};
+
 const STATUS_TONE: Record<UserStatus, Tone> = { active: 'success', pending: 'warning', blocked: 'danger' };
 
 export default function AdminUsers() {
@@ -39,6 +45,10 @@ export default function AdminUsers() {
   const [editing, setEditing] = useState<AdminUser | null>(null);
   const [editRole, setEditRole] = useState<UserRole>('guest');
   const [deleting, setDeleting] = useState<AdminUser | null>(null);
+  const [access, setAccess] = useState<AdminUser | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(true);
+  const [savedPassword, setSavedPassword] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [invite, setInvite] = useState({ name: '', email: '', role: 'organizer' as UserRole });
 
@@ -80,6 +90,26 @@ export default function AdminUsers() {
     if (await run(() => adminApi.updateUser(editing.id, { role: editRole }), msg)) setEditing(null);
   };
 
+  const openAccess = (u: AdminUser) => { setAccess(u); setNewPassword(generatePassword()); setShowPassword(true); setSavedPassword(null); };
+
+  const savePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!access) return;
+    const password = newPassword;
+    if (await run(() => adminApi.setUserPassword(access.id, password), t(`New password set for ${access.name}`, `Новый пароль для ${access.name} сохранён`))) {
+      setSavedPassword(password);
+    }
+  };
+
+  const copy = async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(t('Copied', 'Скопировано'));
+    } catch {
+      toast(t('Could not copy — select the text manually', 'Не удалось скопировать — выделите текст вручную'), 'danger');
+    }
+  };
+
   const sendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     const ok = await run(() => adminApi.inviteUser({ name: invite.name || undefined, email: invite.email, role: invite.role }),
@@ -92,6 +122,7 @@ export default function AdminUsers() {
 
   const actions = (u: AdminUser) => (
     <div className="flex justify-end gap-0.5">
+      <IconButton icon="lock" label={t(`Login & password: ${u.name}`, `Логин и пароль: ${u.name}`)} onClick={() => openAccess(u)} disabled={busy} />
       <IconButton icon="key" label={t(`Change role for ${u.name}`, `Сменить роль: ${u.name}`)} onClick={() => openEdit(u)} disabled={u.id === me?.id || busy} />
       <IconButton icon={u.status === 'blocked' ? 'check' : 'ban'}
         label={u.status === 'blocked' ? t(`Unblock ${u.name}`, `Разблокировать: ${u.name}`) : t(`Block ${u.name}`, `Заблокировать: ${u.name}`)}
@@ -208,6 +239,73 @@ export default function AdminUsers() {
             <Field label={t('Role', 'Роль')} htmlFor="edit-role" hint={t('Admins get full access to this console.', 'Админы получают полный доступ к этой панели.')}>
               <Select id="edit-role" value={editRole} onChange={e => setEditRole(e.target.value as UserRole)} options={ROLE_OPTIONS} />
             </Field>
+          </div>
+        )}
+      </Modal>
+
+      {/* Login & password */}
+      <Modal open={!!access} onClose={() => setAccess(null)} title={t('Login & password', 'Логин и пароль')}>
+        {access && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 rounded-xl bg-bg p-3">
+              <Avatar src={access.avatarUrl ?? undefined} name={access.name} size={40} />
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-semibold">{access.name}</p>
+                <p className="truncate text-xs text-muted">{access.email}</p>
+              </div>
+            </div>
+
+            <Field label={t('Login (email)', 'Логин (email)')} htmlFor="acc-email">
+              <div className="flex gap-2">
+                <Input id="acc-email" value={access.email} readOnly />
+                <IconButton icon="file" label={t('Copy login', 'Скопировать логин')} onClick={() => copy(access.email)} />
+              </div>
+            </Field>
+
+            <p className="text-xs text-muted">
+              {access.hasPassword
+                ? t('Passwords are stored encrypted, so nobody — not even an admin — can see the current one. Set a new password and send it to the user.',
+                  'Пароли хранятся в зашифрованном виде, поэтому текущий пароль не может увидеть никто, даже админ. Задайте новый пароль и передайте его пользователю.')
+                : access.googleLinked
+                  ? t('This account signs in with Google and has no password yet. You can set one so they can also sign in by email.',
+                    'Этот аккаунт входит через Google и пароля пока нет. Можно задать пароль, чтобы входить и по email.')
+                  : t('This account has no password yet. Setting one activates it.', 'У этого аккаунта пока нет пароля. После установки пароля аккаунт станет активным.')}
+            </p>
+
+            {savedPassword ? (
+              <div className="space-y-3 rounded-xl border border-line p-3">
+                <p className="text-sm font-semibold">{t('New sign-in details', 'Новые данные для входа')}</p>
+                <div className="flex items-center gap-2">
+                  <code className="min-w-0 flex-1 truncate rounded-lg bg-bg px-3 py-2 text-sm">{savedPassword}</code>
+                  <IconButton icon="file" label={t('Copy password', 'Скопировать пароль')} onClick={() => copy(savedPassword)} />
+                </div>
+                <p className="text-xs text-muted">
+                  {t('The user was signed out on all devices. This password is shown only now — copy it before closing.',
+                    'Пользователь вышел на всех устройствах. Пароль показывается только сейчас — скопируйте его перед закрытием.')}
+                </p>
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <Button onClick={() => copy(`${t('Login', 'Логин')}: ${access.email}
+${t('Password', 'Пароль')}: ${savedPassword}`)}>{t('Copy both', 'Скопировать всё')}</Button>
+                  <Button variant="primary" onClick={() => setAccess(null)}>{t('Done', 'Готово')}</Button>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={savePassword} className="space-y-4">
+                <Field label={t('New password', 'Новый пароль')} htmlFor="acc-password" hint={t('At least 8 characters.', 'Минимум 8 символов.')}>
+                  <div className="flex gap-2">
+                    <Input id="acc-password" type={showPassword ? 'text' : 'password'} required minLength={8} maxLength={128}
+                      value={newPassword} onChange={e => setNewPassword(e.target.value)} autoComplete="new-password" />
+                    <IconButton icon={showPassword ? 'eyeOff' : 'eye'} label={showPassword ? t('Hide password', 'Скрыть пароль') : t('Show password', 'Показать пароль')}
+                      onClick={() => setShowPassword(v => !v)} />
+                    <IconButton icon="sparkle" label={t('Generate password', 'Сгенерировать пароль')} onClick={() => setNewPassword(generatePassword())} />
+                  </div>
+                </Field>
+                <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
+                  <Button onClick={() => setAccess(null)}>{t('Cancel', 'Отмена')}</Button>
+                  <Button type="submit" variant="primary" icon="lock" disabled={busy || newPassword.length < 8}>{t('Set password', 'Сохранить пароль')}</Button>
+                </div>
+              </form>
+            )}
           </div>
         )}
       </Modal>

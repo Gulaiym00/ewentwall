@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
-  ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsEmail, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Max, MaxLength, Min,
+  ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsEmail, IsIn, IsInt, IsOptional, IsString, IsUUID, Length, Max, MaxLength, Min, MinLength,
   ValidateNested,
 } from 'class-validator';
 
@@ -43,6 +43,11 @@ export class UpdateUserDto {
 
   @ApiPropertyOptional({ enum: ['active', 'blocked'] }) @IsOptional() @IsIn(['active', 'blocked'])
   status?: 'active' | 'blocked';
+}
+
+export class SetUserPasswordDto {
+  @ApiProperty({ minLength: 8 }) @IsString() @MinLength(8) @MaxLength(128)
+  password: string;
 }
 
 export class EventsQuery extends PageQuery {
