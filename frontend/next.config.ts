@@ -12,6 +12,8 @@ const nextConfig: NextConfig = {
   /* config options here */
   reactCompiler: true,
   allowedDevOrigins: lanAddresses,
+  // Don't let `next dev` write AGENTS.md / CLAUDE.md into the project.
+  agentRules: false,
 };
 
 export default nextConfig;
