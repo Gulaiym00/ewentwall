@@ -115,6 +115,9 @@ export interface Page<T> { items: T[]; nextCursor: string | null }
 
 export interface Comment { id: string; author: string; text: string; createdAt: string }
 
+/** One guest's reaction on a photo; author is null when the guest didn't give a name. */
+export interface Reactor { id: string; emoji: string; author: string | null; mine: boolean; createdAt: string }
+
 export type ReportReason = 'inappropriate' | 'spam' | 'copyright' | 'privacy' | 'violence';
 
 // ─── Content & reviews ────────────────────────────────────────────────────────

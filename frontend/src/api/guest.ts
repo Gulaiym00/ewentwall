@@ -3,7 +3,7 @@
 import { api, ApiError, API_URL, url } from './client';
 import { getGuestSession, setGuestSession } from './session';
 import { compressImage } from '@/utils/compress-image';
-import type { Comment, Page, Photo, PublicEvent, ReportReason } from './types';
+import type { Comment, Page, Photo, PublicEvent, Reactor, ReportReason } from './types';
 
 const as = (slug: string) => ({ auth: { guest: slug } as const });
 
@@ -47,6 +47,7 @@ export const guestApi = {
   },
 
   react: (slug: string, photoId: string, emoji: string) => api.post<Photo>(`/photos/${photoId}/reactions`, { emoji }, as(slug)),
+  reactions: (slug: string, photoId: string) => api.get<Reactor[]>(`/photos/${photoId}/reactions`, as(slug)),
   comments: (slug: string, photoId: string) => api.get<Comment[]>(`/photos/${photoId}/comments`, as(slug)),
   comment: (slug: string, photoId: string, text: string) => api.post<Comment>(`/photos/${photoId}/comments`, { text }, as(slug)),
   report: (slug: string, photoId: string, reason: ReportReason) => api.post(`/photos/${photoId}/reports`, { reason }, as(slug)),

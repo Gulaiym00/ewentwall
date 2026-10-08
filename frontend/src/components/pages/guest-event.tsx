@@ -396,7 +396,7 @@ export default function GuestEvent({ slug }: { slug: string }) {
             {latest.data?.length ? (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4 }}>
                 {latest.data.map(photo => (
-                  <Link key={photo.id} href={`/e/${slug}/wall`} aria-label={t(`Photo by ${photo.author}`, `Фото от ${photo.author}`)}
+                  <Link key={photo.id} href={`/e/${slug}/wall?photo=${photo.id}`} aria-label={t(`Photo by ${photo.author}`, `Фото от ${photo.author}`)}
                     style={{ borderRadius: 10, overflow: 'hidden', aspectRatio: '1', background: 'var(--border)', display: 'block' }}
                     className="photo-hover">
                     <img src={photo.thumbUrl} alt={photo.caption ?? ''} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />

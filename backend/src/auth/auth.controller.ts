@@ -6,6 +6,7 @@ import type { Request, Response } from 'express';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Env } from '../config/env.js';
 import { clientIp, CurrentUser, Public, type AuthUser } from '../common/auth.js';
+import { byIp } from '../common/throttle.js';
 import { LoginDto, RefreshDto, RegisterDto } from './auth.dto.js';
 import { AuthService, type SessionMeta } from './auth.service.js';
 import { GoogleService } from './google.service.js';
@@ -26,7 +27,7 @@ const sameString = (a: string, b: string) => a.length === b.length && timingSafe
 @ApiTags('auth')
 @Controller('auth')
 // Brute-force protection: at most 10 auth requests per minute per IP.
-@Throttle({ default: { limit: 10, ttl: 60_000 } })
+@Throttle({ default: { limit: 10, ttl: 60_000, getTracker: byIp } })
 export class AuthController {
   constructor(
     private readonly auth: AuthService,
@@ -52,7 +53,7 @@ export class AuthController {
   @Public()
   @Post('refresh')
   @HttpCode(200)
-  @Throttle({ default: { limit: 30, ttl: 60_000 } })
+  @Throttle({ default: { limit: 30, ttl: 60_000, getTracker: byIp } })
   @ApiOperation({ summary: 'Exchange a refresh token for a new token pair (the old one stops working)' })
   refresh(@Body() dto: RefreshDto, @Req() req: Request) {
     return this.auth.refresh(dto.refreshToken, meta(req));
@@ -67,6 +68,7 @@ export class AuthController {
   }
 
   @Get('me')
+  @Throttle({ default: { limit: 120, ttl: 60_000 } }) // called on every page load, not a sign-in attempt
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Current user' })
   me(@CurrentUser() user: AuthUser) {
@@ -75,6 +77,7 @@ export class AuthController {
 
   @Public()
   @Get('google/status')
+  @Throttle({ default: { limit: 120, ttl: 60_000 } }) // called on every page load, not a sign-in attempt
   @ApiOperation({ summary: 'Whether Google sign-in is configured (to show or hide the button)' })
   googleStatus() {
     return { enabled: this.google.enabled };

@@ -226,7 +226,7 @@ export default function Auth({ mode }: AuthProps) {
                 )}
                 <div>
                   <label htmlFor="auth-email" style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Email</label>
-                  <input id="auth-email" type="email" autoComplete="email" inputMode="email" value={email} onChange={e => setEmail(e.target.value)} required
+                  <input id="auth-email" type="email" autoComplete="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} value={email} onChange={e => setEmail(e.target.value)} required
                     placeholder="you@example.com" style={inputStyle}
                     onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
                     onBlur={e => (e.target.style.borderColor = 'var(--border)')} />
@@ -242,7 +242,7 @@ export default function Auth({ mode }: AuthProps) {
                     )}
                   </div>
                   <div style={{ position: 'relative' }}>
-                    <input id="auth-password" type={showPass ? 'text' : 'password'} autoComplete={tab === 'register' ? 'new-password' : 'current-password'} minLength={tab === 'register' ? 8 : undefined} value={password} onChange={e => setPassword(e.target.value)} required
+                    <input id="auth-password" type={showPass ? 'text' : 'password'} autoCapitalize="none" autoCorrect="off" spellCheck={false} autoComplete={tab === 'register' ? 'new-password' : 'current-password'} minLength={tab === 'register' ? 8 : undefined} value={password} onChange={e => setPassword(e.target.value)} required
                       placeholder={tab === 'register' ? 'At least 8 characters' : '••••••••'} style={{ ...inputStyle, paddingRight: 44 }}
                       onFocus={e => (e.target.style.borderColor = 'var(--accent)')}
                       onBlur={e => (e.target.style.borderColor = 'var(--border)')} />

@@ -1,6 +1,5 @@
 import type { Prisma } from '../generated/prisma/client.js';
 import { lower } from '../common/serialize.js';
-import type { PrismaService } from '../prisma/prisma.service.js';
 import type { StorageService } from '../storage/storage.service.js';
 
 export const REACTION_EMOJIS = ['❤️', '😂', '🔥', '😍', '👏'] as const;
@@ -33,9 +32,3 @@ export function photoDto(photo: PhotoWithCounts, storage: StorageService, viewer
   };
 }
 export type PhotoDto = ReturnType<typeof photoDto>;
-
-/** Loads one photo in wall format. */
-export async function loadPhotoDto(prisma: PrismaService, storage: StorageService, photoId: string, viewerGuestId?: string) {
-  const photo = await prisma.photo.findUniqueOrThrow({ where: { id: photoId }, include: photoInclude });
-  return photoDto(photo, storage, viewerGuestId);
-}

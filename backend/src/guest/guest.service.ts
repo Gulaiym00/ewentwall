@@ -1,7 +1,8 @@
 import {
-  BadRequestException, ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException, UnauthorizedException,
+  BadRequestException, ForbiddenException, HttpException, HttpStatus, Injectable, NotFoundException, ServiceUnavailableException, UnauthorizedException,
 } from '@nestjs/common';
 import * as argon2 from 'argon2';
+import { open, readFile, rm } from 'node:fs/promises';
 import type { Event, Prisma } from '../generated/prisma/client.js';
 import type { AuthGuest } from '../common/auth.js';
 import { fileUrl, lower } from '../common/serialize.js';
@@ -15,6 +16,21 @@ import { RealtimeService } from '../realtime/realtime.service.js';
 import { imageKey, StorageService } from '../storage/storage.service.js';
 import type { JoinEventDto, ListPhotosQuery } from './guest.dto.js';
 
+// PIN guessing: at most this many wrong PINs per IP and event in the window (a venue shares one IP, so not too strict).
+const PIN_MAX_FAILS = 20;
+const PIN_WINDOW_MS = 10 * 60_000;
+
+/** First bytes of a file: enough to recognise the image type. */
+async function readHead(path: string): Promise<Buffer> {
+  const file = await open(path, 'r');
+  try {
+    const { buffer, bytesRead } = await file.read(Buffer.alloc(16), 0, 16, 0);
+    return buffer.subarray(0, bytesRead);
+  } finally {
+    await file.close();
+  }
+}
+
 @Injectable()
 export class GuestService {
   constructor(
@@ -25,6 +41,24 @@ export class GuestService {
     private readonly settings: SettingsService,
     private readonly realtime: RealtimeService,
   ) {}
+
+  /** Wrong PIN attempts per "ip|eventId" (in memory: the API runs as one instance). */
+  private readonly pinFails = new Map<string, { count: number; resetAt: number }>();
+
+  private checkPinAttempts(key: string) {
+    const entry = this.pinFails.get(key);
+    if (entry && entry.resetAt > Date.now() && entry.count >= PIN_MAX_FAILS) {
+      throw new HttpException('Too many wrong PINs — try again in a few minutes', HttpStatus.TOO_MANY_REQUESTS);
+    }
+  }
+
+  private recordPinFail(key: string) {
+    const now = Date.now();
+    if (this.pinFails.size > 10_000) for (const [k, v] of this.pinFails) if (v.resetAt <= now) this.pinFails.delete(k);
+    const entry = this.pinFails.get(key);
+    if (!entry || entry.resetAt <= now) this.pinFails.set(key, { count: 1, resetAt: now + PIN_WINDOW_MS });
+    else entry.count++;
+  }
 
   async eventBySlug(slug: string): Promise<Event> {
     const event = await this.prisma.event.findUnique({ where: { slug } });
@@ -59,10 +93,15 @@ export class GuestService {
     };
   }
 
-  async join(slug: string, dto: JoinEventDto) {
+  async join(slug: string, dto: JoinEventDto, ip = 'unknown') {
     const event = await this.eventBySlug(slug);
     if (event.pinHash) {
-      if (!dto.pin || !(await argon2.verify(event.pinHash, dto.pin))) throw new UnauthorizedException('Wrong PIN');
+      const key = `${ip}|${event.id}`;
+      this.checkPinAttempts(key);
+      if (!dto.pin || !(await argon2.verify(event.pinHash, dto.pin))) {
+        this.recordPinFail(key);
+        throw new UnauthorizedException('Wrong PIN');
+      }
     }
     const guest = await this.prisma.guest.create({ data: { eventId: event.id, name: dto.name || null } });
     return {
@@ -99,7 +138,16 @@ export class GuestService {
     };
   }
 
+  /** Files arrive as temp files on disk (see guest.controller.ts); they are always removed afterwards. */
   async upload(slug: string, guest: AuthGuest, files: Express.Multer.File[], caption?: string) {
+    try {
+      return await this.saveUpload(slug, guest, files, caption);
+    } finally {
+      await Promise.allSettled((files ?? []).map(f => rm(f.path, { force: true })));
+    }
+  }
+
+  private async saveUpload(slug: string, guest: AuthGuest, files: Express.Multer.File[], caption?: string) {
     const event = await this.eventBySlug(slug);
     if (guest.eventId !== event.id) throw new ForbiddenException('You joined a different event');
 
@@ -110,18 +158,25 @@ export class GuestService {
     if (files.length > settings.maxPerUpload) throw new BadRequestException(`Up to ${settings.maxPerUpload} photos per upload`);
 
     // Validate everything before writing anything, so a bad file doesn't leave a half upload.
-    const validated = files.map(f => ({ file: f, ...imageKey(`events/${event.id}`, f, settings.maxPhotoMb) }));
-    const prepared: (typeof validated[number] & { thumb: Buffer | null; thumbKey: string | null })[] = [];
-    for (const p of validated) { // one at a time: keeps memory low on small servers
-      const thumb = await makeThumbnail(p.file.buffer, p.mime);
-      prepared.push({ ...p, thumb, thumbKey: thumb ? thumbKeyFor(p.key) : null });
-    }
-    const keys = prepared.flatMap(p => (p.thumbKey ? [p.key, p.thumbKey] : [p.key]));
+    const validated = await Promise.all(files.map(async f => ({
+      file: f,
+      ...imageKey(`events/${event.id}`, { buffer: await readHead(f.path), size: f.size }, settings.maxPhotoMb),
+    })));
+    // One photo in memory at a time: the free server has ~512 MB of RAM.
+    const prepared: (typeof validated[number] & { thumbKey: string | null })[] = [];
+    const keys: string[] = [];
     try {
-      await Promise.all(prepared.flatMap(p => [
-        this.storage.put(p.key, p.file.buffer, p.mime),
-        ...(p.thumb && p.thumbKey ? [this.storage.put(p.thumbKey, p.thumb, 'image/webp')] : []),
-      ]));
+      for (const p of validated) {
+        const body = await readFile(p.file.path);
+        const thumb = await makeThumbnail(body, p.mime);
+        const thumbKey = thumb ? thumbKeyFor(p.key) : null;
+        keys.push(p.key, ...(thumbKey ? [thumbKey] : []));
+        await Promise.all([
+          this.storage.put(p.key, body, p.mime),
+          ...(thumb && thumbKey ? [this.storage.put(thumbKey, thumb, 'image/webp')] : []),
+        ]);
+        prepared.push({ ...p, thumbKey });
+      }
     } catch (err) {
       await this.storage.deleteMany(keys);
       throw err;

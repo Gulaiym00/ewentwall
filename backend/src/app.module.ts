@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { validateEnv } from './config/env.js';
 import { AccessTokenGuard, RolesGuard } from './common/guards.js';
+import { AppThrottlerGuard } from './common/throttle.js';
 import { HealthController } from './health.controller.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { PlatformModule } from './platform/platform.module.js';
@@ -19,7 +20,7 @@ import { AdminModule } from './admin/admin.module.js';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, validate: validateEnv }),
-    // 120 requests per minute per IP by default; auth routes are stricter.
+    // 120 requests per minute per route for each guest/user (per IP without a token); sign-in is stricter.
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
     PrismaModule,
     PlatformModule,
@@ -35,7 +36,7 @@ import { AdminModule } from './admin/admin.module.js';
   controllers: [HealthController],
   providers: [
     // Order matters: rate limit → authenticate → authorize.
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: AppThrottlerGuard },
     { provide: APP_GUARD, useClass: AccessTokenGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],

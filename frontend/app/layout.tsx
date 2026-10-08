@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import { Inter, Playfair_Display } from 'next/font/google';
 import { ThemeProvider, themeInitScript } from '@/components/ThemeProvider';
 import { ToastProvider } from '@/components/Toast';
+import { WakeApi } from '@/components/WakeApi';
 import { AuthProvider } from '@/hooks/useAuth';
 import { LocaleProvider } from '@/utils/locale';
 import { landingDict } from '@/utils/i18n';
@@ -48,6 +49,7 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
+        <WakeApi />
         <ThemeProvider>
           <LocaleProvider initial={locale}>
             <ToastProvider>

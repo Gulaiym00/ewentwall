@@ -7,7 +7,7 @@ import { CurrentGuest, OptionalGuest, Public, type AuthGuest } from '../common/a
 import { GuestTokenGuard, OptionalGuestGuard } from '../common/guards.js';
 import { upper } from '../common/serialize.js';
 import { Prisma } from '../generated/prisma/client.js';
-import { loadPhotoDto } from '../photos/photo.serializer.js';
+import { photoDto, photoInclude } from '../photos/photo.serializer.js';
 import { AuditService } from '../platform/audit.service.js';
 import { SettingsService } from '../platform/settings.service.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -45,16 +45,37 @@ export class PhotosController {
   @HttpCode(200)
   @ApiOperation({ summary: 'React with an emoji; the same emoji again removes it, another one replaces it' })
   async react(@Param('id', ParseUUIDPipe) id: string, @CurrentGuest() guest: AuthGuest, @Body() dto: ReactDto) {
-    const photo = await this.photoForGuest(id, guest);
-    if (photo.status !== 'PUBLISHED') throw new NotFoundException('Photo not found');
+    // The photo comes with its reactions, so the answer is built without reading it again (each query is a round trip).
+    const photo = await this.prisma.photo.findUnique({ where: { id }, include: { ...photoInclude, event: { select: { allowReactions: true } } } });
+    if (!photo || photo.eventId !== guest.eventId || photo.status !== 'PUBLISHED') throw new NotFoundException('Photo not found');
     if (!photo.event.allowReactions) throw new ForbiddenException('Reactions are turned off for this event');
 
     const key = { photoId_guestId: { photoId: id, guestId: guest.id } };
-    const existing = await this.prisma.reaction.findUnique({ where: key });
-    if (existing?.emoji === dto.emoji) await this.prisma.reaction.delete({ where: key });
-    else await this.prisma.reaction.upsert({ where: key, create: { photoId: id, guestId: guest.id, emoji: dto.emoji }, update: { emoji: dto.emoji } });
+    const existing = photo.reactions.find(r => r.guestId === guest.id);
+    const others = photo.reactions.filter(r => r.guestId !== guest.id);
+    if (existing?.emoji === dto.emoji) {
+      await this.prisma.reaction.deleteMany({ where: { photoId: id, guestId: guest.id } });
+      return photoDto({ ...photo, reactions: others }, this.storage, guest.id);
+    }
+    await this.prisma.reaction.upsert({ where: key, create: { photoId: id, guestId: guest.id, emoji: dto.emoji }, update: { emoji: dto.emoji } });
+    return photoDto({ ...photo, reactions: [...others, { emoji: dto.emoji, guestId: guest.id }] }, this.storage, guest.id);
+  }
 
-    return loadPhotoDto(this.prisma, this.storage, id, guest.id);
+  @Get('reactions')
+  @UseGuards(OptionalGuestGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Who reacted to a published photo, newest first (private events need a guest token)' })
+  async reactions(@Param('id', ParseUUIDPipe) id: string, @OptionalGuest() guest?: AuthGuest) {
+    const photo = await this.prisma.photo.findUnique({ where: { id }, select: { status: true, eventId: true, event: { select: { pinHash: true } } } });
+    if (!photo || photo.status !== 'PUBLISHED') throw new NotFoundException('Photo not found');
+    if (photo.event.pinHash && guest?.eventId !== photo.eventId) throw new NotFoundException('Photo not found');
+    const rows = await this.prisma.reaction.findMany({
+      where: { photoId: id },
+      orderBy: { createdAt: 'desc' },
+      take: 500,
+      select: { id: true, emoji: true, guestId: true, createdAt: true, guest: { select: { name: true } } },
+    });
+    return rows.map(r => ({ id: r.id, emoji: r.emoji, author: r.guest.name, mine: r.guestId === guest?.id, createdAt: r.createdAt }));
   }
 
   @Get('comments')

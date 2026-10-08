@@ -13,6 +13,10 @@ import { saveLocale, type LandingDict } from "@/utils/i18n";
 export default function Header({ locale, t }: { locale: Language; t: LandingDict["header"] }) {
   const { navigate, dark, toggleDark } = useNav();
   const { status, user } = useAuth();
+  // Admins go to the admin console, organizers to their profile
+  const isAdmin = user?.role === "admin";
+  const accountHref = isAdmin ? "/admin" : "/dashboard/profile";
+  const accountLabel = isAdmin ? (locale === "ru" ? "Админка" : "Admin console") : t.profile;
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [switching, startSwitch] = useTransition();
@@ -173,9 +177,9 @@ export default function Header({ locale, t }: { locale: Language; t: LandingDict
           {/* Signed in: avatar opens the profile. Signed out: "Sign in". */}
           {user ? (
             <Link
-              href="/dashboard/profile"
-              aria-label={t.profile}
-              title={t.profile}
+              href={accountHref}
+              aria-label={accountLabel}
+              title={accountLabel}
               style={{ display: "flex", borderRadius: "50%", flexShrink: 0 }}
             >
               <Avatar src={user.avatarUrl ?? undefined} name={user.name} size={34} />
@@ -278,7 +282,7 @@ export default function Header({ locale, t }: { locale: Language; t: LandingDict
           )}
           <div style={{ marginTop: 16, gap: 10 }} className="flex md:hidden">
             <button
-              onClick={() => (user ? router.push("/dashboard/profile") : navigate("login"))}
+              onClick={() => (user ? router.push(accountHref) : navigate("login"))}
               style={{
                 flex: 1,
                 padding: "12px",
@@ -291,7 +295,7 @@ export default function Header({ locale, t }: { locale: Language; t: LandingDict
                 cursor: "pointer",
               }}
             >
-              {user ? t.profile : t.signIn}
+              {user ? accountLabel : t.signIn}
             </button>
             <button
               onClick={() => navigate(user ? "create-event" : "register")}
