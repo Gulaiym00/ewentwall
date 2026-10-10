@@ -26,6 +26,12 @@ export interface Env {
   SUPABASE_URL?: string;
   SUPABASE_SERVICE_ROLE_KEY?: string;
   SUPABASE_BUCKET: string;
+  /** Outgoing email (Admin → Support → Email). Off unless SMTP_USER and SMTP_PASS are set. */
+  SMTP_HOST: string;
+  SMTP_PORT: number;
+  SMTP_USER?: string;
+  SMTP_PASS?: string;
+  MAIL_FROM?: string;
 }
 
 /** This computer's LAN IPv4 (home Wi-Fi first), for FRONTEND_URL/API_URL=auto in local development. */
@@ -87,6 +93,12 @@ export function validateEnv(raw: Record<string, unknown>): Env {
     SUPABASE_BUCKET: str('SUPABASE_BUCKET', 'photos'),
     UPLOAD_DIR: str('UPLOAD_DIR', './uploads'),
     STORAGE_QUOTA_GB: int('STORAGE_QUOTA_GB', 1000),
+    SMTP_HOST: str('SMTP_HOST', 'smtp.gmail.com'),
+    SMTP_PORT: int('SMTP_PORT', 465),
+    SMTP_USER: str('SMTP_USER', '') || undefined,
+    // Gmail shows app passwords in groups of four; the spaces are not part of it.
+    SMTP_PASS: str('SMTP_PASS', '').replace(/\s/g, '') || undefined,
+    MAIL_FROM: str('MAIL_FROM', '') || undefined,
   };
 
   const driver = str('STORAGE_DRIVER', 'local');

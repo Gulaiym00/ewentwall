@@ -4,6 +4,9 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useTheme } from '@/components/ThemeProvider';
+import { usePolling } from '@/components/ChatThread';
+import { supportApi } from '@/api/support';
+import { useApi } from '@/hooks/useApi';
 import { Icon, type IconName } from '@/ui/icons';
 import { Avatar, IconButton } from '@/ui';
 import { cx } from '@/utils/cx';
@@ -15,12 +18,12 @@ import { LanguageToggle, useT } from '@/utils/locale';
 // Admins can open the organizer area too (they may run their own events).
 const ALLOWED: Role[] = ['organizer', 'admin'];
 
-const NAV: { href: string; label: string; ru: string; icon: IconName; exact?: boolean }[] = [
+const NAV: { href: string; label: string; ru: string; icon: IconName; exact?: boolean; unread?: boolean }[] = [
   { href: '/dashboard', label: 'Overview', ru: 'Обзор', icon: 'dashboard', exact: true },
   { href: '/dashboard/events', label: 'My Events', ru: 'Мои события', icon: 'calendar' },
   { href: '/dashboard/create', label: 'Create Event', ru: 'Создать событие', icon: 'plus' },
   { href: '/dashboard/profile', label: 'Profile', ru: 'Профиль', icon: 'user' },
-  { href: '/dashboard/support', label: 'Support', ru: 'Поддержка', icon: 'message' },
+  { href: '/dashboard/support', label: 'Support', ru: 'Поддержка', icon: 'message', unread: true },
 ];
 
 export default function OrganizerShell({ children }: { children: React.ReactNode }) {
@@ -31,6 +34,10 @@ export default function OrganizerShell({ children }: { children: React.ReactNode
   const profile = useRequireAuth(ALLOWED);
   const t = useT();
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Unread support replies for the menu badge; re-checked on navigation and every 30 s.
+  const unread = useApi(() => (profile ? supportApi.myUnread() : Promise.resolve({ count: 0 })), [!!profile, pathname]);
+  usePolling(unread.reload, 30_000);
+  const unreadCount = pathname.startsWith('/dashboard/support') ? 0 : unread.data?.count ?? 0;
 
   // Close the mobile drawer on navigation and on Escape
   const [lastPath, setLastPath] = useState(pathname);
@@ -80,7 +87,10 @@ export default function OrganizerShell({ children }: { children: React.ReactNode
                   className={cx('flex h-10 items-center gap-2.5 rounded-[10px] px-3 text-sm font-semibold transition-colors',
                     active ? 'bg-accent-soft text-accent' : 'text-muted hover:bg-bg hover:text-fg')}>
                   <Icon name={item.icon} size={18} />
-                  {t(item.label, item.ru)}
+                  <span className="flex-1">{t(item.label, item.ru)}</span>
+                  {item.unread && unreadCount > 0 && (
+                    <span className="min-w-5 rounded-full bg-accent px-1.5 text-center text-[11px] leading-5 font-bold text-white">{unreadCount}</span>
+                  )}
                 </Link>
               );
             })}
@@ -116,7 +126,8 @@ export default function OrganizerShell({ children }: { children: React.ReactNode
             </Link>
           </header>
 
-          <main className="mx-auto w-full max-w-[1100px] flex-1 px-4 py-6 sm:px-7 md:py-8">{children}</main>
+          {/* Support is a messenger: it takes the whole area under the header. */}
+          <main className={pathname.startsWith('/dashboard/support') ? 'flex h-[calc(100dvh-60px)] min-h-0 flex-col' : 'mx-auto w-full max-w-[1100px] flex-1 px-4 py-6 sm:px-7 md:py-8'}>{children}</main>
         </div>
       </div>
     </>

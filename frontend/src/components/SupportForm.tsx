@@ -8,14 +8,14 @@ import { Icon } from '@/ui/icons';
 import { useT } from '@/utils/locale';
 
 /**
- * Message to support. Used on the login page ("Forgot password?") and in Dashboard → Support.
+ * Message to support. Used on the login page ("Forgot password?"), where the person can't sign in to use the chat.
  * Tickets land in Admin → Support, where the admin can reset the password of the matching account.
  */
-export default function SupportForm({ initialEmail = '', initialName = '', initialTopic = 'other', lockEmail = false }:
-  { initialEmail?: string; initialName?: string; initialTopic?: SupportTopic; lockEmail?: boolean }) {
+export default function SupportForm({ initialEmail = '', initialTopic = 'other' }:
+  { initialEmail?: string; initialTopic?: SupportTopic }) {
   const t = useT();
   const [email, setEmail] = useState(initialEmail);
-  const [name, setName] = useState(initialName);
+  const [name, setName] = useState('');
   const [topic, setTopic] = useState<SupportTopic>(initialTopic);
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -51,7 +51,8 @@ export default function SupportForm({ initialEmail = '', initialName = '', initi
         <p className="mt-1 text-sm leading-relaxed text-muted">
           {topic === 'password'
             ? t(`We'll set a new password for your account and send it to ${email}.`, `Мы установим новый пароль для вашего аккаунта и пришлём его на ${email}.`)
-            : t(`We'll reply to ${email} as soon as we can.`, `Мы ответим на ${email} как можно скорее.`)}
+            : t(`We'll reply to ${email} as soon as we can. If you have an account, the reply also appears in Dashboard → Support.`,
+              `Мы ответим на ${email} как можно скорее. Если у вас есть аккаунт, ответ появится и в кабинете → «Поддержка».`)}
         </p>
         <Button size="sm" className="mt-4" onClick={() => { setSent(false); setMessage(''); }}>{t('Send another message', 'Написать ещё')}</Button>
       </div>
@@ -63,13 +64,11 @@ export default function SupportForm({ initialEmail = '', initialName = '', initi
       {error && <p role="alert" className="rounded-[10px] bg-danger-soft px-3.5 py-3 text-sm font-medium text-danger">{error}</p>}
       <Field label={t('Your email', 'Ваш email')} htmlFor="support-email" hint={t('The one you signed up with — we reply here.', 'Тот, с которым вы регистрировались — ответим на него.')}>
         <Input id="support-email" type="email" required maxLength={254} autoComplete="email" inputMode="email" autoCapitalize="none" spellCheck={false}
-          value={email} onChange={e => setEmail(e.target.value)} readOnly={lockEmail} placeholder="you@example.com" />
+          value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" />
       </Field>
-      {!lockEmail && (
-        <Field label={t('Name (optional)', 'Имя (необязательно)')} htmlFor="support-name">
-          <Input id="support-name" maxLength={80} autoComplete="name" value={name} onChange={e => setName(e.target.value)} />
-        </Field>
-      )}
+      <Field label={t('Name (optional)', 'Имя (необязательно)')} htmlFor="support-name">
+        <Input id="support-name" maxLength={80} autoComplete="name" value={name} onChange={e => setName(e.target.value)} />
+      </Field>
       <Field label={t('Topic', 'Тема')} htmlFor="support-topic">
         <Select id="support-topic" value={topic} onChange={e => setTopic(e.target.value as SupportTopic)} options={TOPICS} />
       </Field>

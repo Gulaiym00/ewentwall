@@ -139,7 +139,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             </div>
           </header>
 
-          <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 py-6 sm:px-6 md:py-8 lg:px-8">
+          {/* Support is a messenger: it takes the whole area under the header. */}
+          <main className={pathname.startsWith('/admin/support') ? 'flex h-[calc(100dvh-64px)] min-h-0 flex-col' : 'mx-auto w-full max-w-[1200px] flex-1 px-4 py-6 sm:px-6 md:py-8 lg:px-8'}>
             {children}
           </main>
         </div>

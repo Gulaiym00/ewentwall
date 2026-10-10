@@ -118,28 +118,6 @@ export default function Auth({ mode }: AuthProps) {
           alt="Event"
           style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', background: 'var(--border)' }}
         />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(15,15,16,0.6) 0%, rgba(0,0,0,0.2) 100%)' }} />
-        {/* Overlay content */}
-        <div style={{ position: 'absolute' }} className="inset-x-10 bottom-10 xl:inset-x-12 xl:bottom-12">
-          <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 28, height: 28, background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(8px)', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.2)' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="white"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4" fill="white"/></svg>
-            </div>
-            <span style={{ color: '#fff', fontWeight: 600, fontSize: 15 }}>EventWall</span>
-          </div>
-          <blockquote style={{ margin: 0 }}>
-            <p className="font-serif" style={{ fontSize: 'clamp(22px, 2vw, 26px)', fontWeight: 600, color: '#fff', lineHeight: 1.3, letterSpacing: '-0.02em', marginBottom: 16 }}>
-              "Our guests uploaded 1,200 photos in a single evening. It was magical."
-            </p>
-            <footer style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=40&h=40&fit=crop" alt="Alina" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
-              <div>
-                <p style={{ color: '#fff', fontWeight: 600, fontSize: 14, margin: 0 }}>Алина & Тимур</p>
-                <p style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, margin: 0 }}>Wedding · September 2025</p>
-              </div>
-            </footer>
-          </blockquote>
-        </div>
       </div>
 
       {/* Right – Form panel */}

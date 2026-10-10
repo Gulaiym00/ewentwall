@@ -22,7 +22,7 @@ export interface PlatformSettings {
 
 export const DEFAULT_SETTINGS: PlatformSettings = {
   platformName: 'EventWall',
-  supportEmail: 'ewentwall00@gmail.com',
+  supportEmail: 'eventwall00@gmail.com',
   defaultLocale: 'en',
   maxPhotoMb: 15,
   maxPerUpload: 10,

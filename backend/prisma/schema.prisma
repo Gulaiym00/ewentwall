@@ -274,22 +274,42 @@ enum SupportStatus {
   RESOLVED
 }
 
-/// Message sent through the support form (login page "Forgot password?", Dashboard → Support).
-/// Linked to the account with the same email, if there is one, so the admin can reset its password.
+/// Support conversation: started from the support form (login page "Forgot password?") or from the
+/// chat in Dashboard → Support. Linked to the account with the same email, if there is one, so the
+/// admin can reset its password and the organizer sees the replies in the chat after signing in.
 model SupportTicket {
-  id         String        @id @default(uuid()) @db.Uuid
-  email      String
-  name       String?
-  userId     String?       @db.Uuid
-  user       User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
-  topic      SupportTopic  @default(OTHER)
-  message    String
-  status     SupportStatus @default(OPEN)
-  ip         String?
-  createdAt  DateTime      @default(now())
-  resolvedAt DateTime?
+  id            String        @id @default(uuid()) @db.Uuid
+  email         String
+  name          String?
+  userId        String?       @db.Uuid
+  user          User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  topic         SupportTopic  @default(OTHER)
+  status        SupportStatus @default(OPEN)
+  ip            String?
+  createdAt     DateTime      @default(now())
+  resolvedAt    DateTime?
+  lastMessageAt DateTime      @default(now())
+  adminUnread   Int           @default(0) // messages from the user the admin hasn't opened yet
+  userUnread    Int           @default(0) // admin replies the user hasn't seen yet
 
-  @@index([status, createdAt])
+  messages SupportMessage[]
+
+  @@index([status, lastMessageAt])
+  @@index([userId, lastMessageAt])
+}
+
+model SupportMessage {
+  id         String        @id @default(uuid()) @db.Uuid
+  ticketId   String        @db.Uuid
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  fromAdmin  Boolean       @default(false)
+  authorId   String?       @db.Uuid
+  authorName String
+  text       String        @default("") // may be empty when the message is just an image
+  imageKey   String?       // picture, GIF or sticker image in storage
+  createdAt  DateTime      @default(now())
+
+  @@index([ticketId, createdAt])
 }
 
 enum AuditCategory {
