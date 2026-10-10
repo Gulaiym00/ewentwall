@@ -154,6 +154,7 @@ export interface AdminStats {
   uploads14d: { date: string; uploads: number }[];
   pendingReports: number;
   pendingReviews: number;
+  openTickets: number;
 }
 
 export interface AdminUser extends User { events: number }

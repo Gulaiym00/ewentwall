@@ -25,6 +25,7 @@ const NAV: { href: string; label: string; ru: string; icon: IconName; badge?: ke
   { href: '/admin/events', label: 'Events', ru: 'События', icon: 'calendar' },
   { href: '/admin/moderation', label: 'Moderation', ru: 'Модерация', icon: 'shield', badge: 'pendingReports' },
   { href: '/admin/reviews', label: 'Reviews', ru: 'Отзывы', icon: 'star', badge: 'pendingReviews' },
+  { href: '/admin/support', label: 'Support', ru: 'Поддержка', icon: 'message', badge: 'openTickets' },
   { href: '/admin/content', label: 'Website content', ru: 'Контент сайта', icon: 'file' },
   { href: '/admin/settings', label: 'Settings', ru: 'Настройки', icon: 'settings' },
   { href: '/admin/audit', label: 'Audit log', ru: 'Журнал действий', icon: 'history' },

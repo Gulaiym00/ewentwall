@@ -56,6 +56,7 @@ model User {
   refreshTokens RefreshToken[]
   events        Event[]
   reviews       Review[]
+  tickets       SupportTicket[]
 
   @@index([role, status])
 }
@@ -259,6 +260,36 @@ model PlatformSettings {
   id        Int      @id @default(1)
   data      Json
   updatedAt DateTime @updatedAt
+}
+
+enum SupportTopic {
+  PASSWORD // can't sign in / forgot password
+  ACCOUNT
+  EVENT
+  OTHER
+}
+
+enum SupportStatus {
+  OPEN
+  RESOLVED
+}
+
+/// Message sent through the support form (login page "Forgot password?", Dashboard → Support).
+/// Linked to the account with the same email, if there is one, so the admin can reset its password.
+model SupportTicket {
+  id         String        @id @default(uuid()) @db.Uuid
+  email      String
+  name       String?
+  userId     String?       @db.Uuid
+  user       User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  topic      SupportTopic  @default(OTHER)
+  message    String
+  status     SupportStatus @default(OPEN)
+  ip         String?
+  createdAt  DateTime      @default(now())
+  resolvedAt DateTime?
+
+  @@index([status, createdAt])
 }
 
 enum AuditCategory {

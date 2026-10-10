@@ -20,6 +20,7 @@ const NAV: { href: string; label: string; ru: string; icon: IconName; exact?: bo
   { href: '/dashboard/events', label: 'My Events', ru: 'Мои события', icon: 'calendar' },
   { href: '/dashboard/create', label: 'Create Event', ru: 'Создать событие', icon: 'plus' },
   { href: '/dashboard/profile', label: 'Profile', ru: 'Профиль', icon: 'user' },
+  { href: '/dashboard/support', label: 'Support', ru: 'Поддержка', icon: 'message' },
 ];
 
 export default function OrganizerShell({ children }: { children: React.ReactNode }) {

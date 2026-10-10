@@ -16,6 +16,7 @@ import { EventsModule } from './events/events.module.js';
 import { GuestModule } from './guest/guest.module.js';
 import { ReviewsModule } from './reviews/reviews.module.js';
 import { AdminModule } from './admin/admin.module.js';
+import { SupportModule } from './support/support.module.js';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { AdminModule } from './admin/admin.module.js';
     GuestModule,
     ReviewsModule,
     AdminModule,
+    SupportModule,
   ],
   controllers: [HealthController],
   providers: [

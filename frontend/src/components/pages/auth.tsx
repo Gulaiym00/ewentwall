@@ -6,6 +6,8 @@ import { authApi } from '@/api/auth';
 import { errorMessage } from '@/api/client';
 import { homeFor, useAuth } from '@/hooks/useAuth';
 import { useNav } from '@/hooks/useNav';
+import SupportForm from '@/components/SupportForm';
+import { useT } from '@/utils/locale';
 
 interface AuthProps {
   mode: 'login' | 'register';
@@ -48,6 +50,7 @@ const safeNext = (value: string | null) => (value && value.startsWith('/') && !v
 
 export default function Auth({ mode }: AuthProps) {
   const { navigate, dark, toggleDark } = useNav();
+  const t = useT();
   const [tab, setTab] = useState<'login' | 'register' | 'forgot'>(mode);
   const [showPass, setShowPass] = useState(false);
   const [email, setEmail] = useState('');
@@ -165,16 +168,16 @@ export default function Auth({ mode }: AuthProps) {
               <div style={{ width: 56, height: 56, borderRadius: '50%', background: 'var(--accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20, color: 'var(--accent)' }}>
                 <CheckCircleIcon />
               </div>
-              <h2 className="font-serif" style={{ fontSize: 28, fontWeight: 700, margin: '0 0 8px', letterSpacing: '-0.02em' }}>Reset password</h2>
+              <h2 className="font-serif" style={{ fontSize: 28, fontWeight: 700, margin: '0 0 8px', letterSpacing: '-0.02em' }}>{t('Reset password', 'Сброс пароля')}</h2>
               <p style={{ fontSize: 15, color: 'var(--text-2)', marginBottom: 24, lineHeight: 1.6 }}>
-                Password reset by email is coming soon. Until then, write to{' '}
-                <a href="mailto:support@eventwall.com" style={{ color: 'var(--accent)', fontWeight: 600 }}>support@eventwall.com</a>{' '}
-                from the address you signed up with and we'll help you get back in.
-                {googleEnabled && ' If you signed up with Google, just use “Continue with Google”.'}
+                {t('Write to support from the email you signed up with — we’ll set a new password and send it to you.',
+                  'Напишите в поддержку с email, на который зарегистрирован аккаунт — мы установим новый пароль и пришлём его вам.')}
+                {googleEnabled && t(' If you signed up with Google, just use “Continue with Google”.', ' Если вы входили через Google, просто нажмите «Continue with Google».')}
               </p>
+              <SupportForm initialEmail={email} initialTopic="password" />
               <button onClick={() => setTab('login')}
-                style={{ width: '100%', padding: '13px', borderRadius: 11, background: 'var(--accent)', color: '#fff', border: 'none', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
-                Back to sign in
+                style={{ width: '100%', marginTop: 12, padding: '12px', borderRadius: 11, background: 'none', color: 'var(--text-2)', border: '1.5px solid var(--border)', fontSize: 15, fontWeight: 600, cursor: 'pointer' }}>
+                {t('Back to sign in', 'Назад ко входу')}
               </button>
             </>
           )}

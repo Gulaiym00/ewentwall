@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useToast } from '@/components/Toast';
 import {
   Avatar, Badge, Button, Card, ConfirmDialog, EmptyState, Field, IconButton, Input, Modal, PageHeader, SearchInput, Select, type Tone,
@@ -33,6 +33,11 @@ export default function AdminUsers() {
   const [query, setQuery] = useState('');
   const [role, setRole] = useState<'all' | UserRole>('all');
   const [status, setStatus] = useState<'all' | UserStatus>('all');
+  // ?query=… comes from Admin → Support (“Set new password”).
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search).get('query');
+    if (q) queueMicrotask(() => setQuery(q));
+  }, []);
   const search = useDebounced(query.trim(), 300);
   const list = useApi(
     () => adminApi.users({ query: search || undefined, role: role === 'all' ? undefined : role, status: status === 'all' ? undefined : status, pageSize: 100 }),

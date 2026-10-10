@@ -46,7 +46,7 @@ export class AdminService {
     const yesterday = new Date(today.getTime() - DAY);
     const since14 = new Date(today.getTime() - 13 * DAY);
 
-    const [users, newUsers7, newUsersPrev7, activeEvents, events7, eventsPrev7, photosToday, photosYesterday, storage, uploads, pendingReports, pendingReviews] =
+    const [users, newUsers7, newUsersPrev7, activeEvents, events7, eventsPrev7, photosToday, photosYesterday, storage, uploads, pendingReports, pendingReviews, openTickets] =
       await Promise.all([
         this.prisma.user.count(),
         this.prisma.user.count({ where: { createdAt: { gte: new Date(now - 7 * DAY) } } }),
@@ -62,6 +62,7 @@ export class AdminService {
           WHERE "createdAt" >= ${since14} GROUP BY 1 ORDER BY 1`,
         this.prisma.photo.count({ where: { reports: { some: { status: 'PENDING' } } } }),
         this.prisma.review.count({ where: { status: 'PENDING' } }),
+        this.prisma.supportTicket.count({ where: { status: 'OPEN' } }),
       ]);
 
     // Fill days without uploads with zeros so the chart has all 14 bars.
@@ -84,6 +85,7 @@ export class AdminService {
       uploads14d,
       pendingReports,
       pendingReviews,
+      openTickets,
     };
   }
 

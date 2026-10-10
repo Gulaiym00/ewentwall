@@ -13,7 +13,7 @@ import { useAuth } from './useAuth';
 export interface AdminStore {
   stats: AdminStats | undefined;
   statsError: Error | undefined;
-  counts: { pendingReports: number; pendingReviews: number };
+  counts: { pendingReports: number; pendingReviews: number; openTickets: number };
   refreshCounts: () => void;
 }
 
@@ -25,7 +25,7 @@ function useAdminStore(): AdminStore {
   return useMemo(() => ({
     stats: stats.data,
     statsError: stats.error,
-    counts: { pendingReports: stats.data?.pendingReports ?? 0, pendingReviews: stats.data?.pendingReviews ?? 0 },
+    counts: { pendingReports: stats.data?.pendingReports ?? 0, pendingReviews: stats.data?.pendingReviews ?? 0, openTickets: stats.data?.openTickets ?? 0 },
     refreshCounts: stats.reload,
   }), [stats.data, stats.error, stats.reload]);
 }
